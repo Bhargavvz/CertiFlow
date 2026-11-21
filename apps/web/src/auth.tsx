@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ApiError, api } from './api';
+import { ApiError, api, setUnauthenticatedHandler } from './api';
+import { notify } from './toast';
 import type { AuthUser } from './types';
 
 interface AuthState {
@@ -36,6 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
     qc.setQueryData(['me'], user);
   };
+
+  // Any 401 mid-session (cookie expired, secret rotated) drops back to the login screen.
+  useEffect(() => {
+    setUnauthenticatedHandler(() => {
+      if (qc.getQueryData(['me'])) {
+        switchUser(null);
+        notify('Your session has ended. Please sign in again.', 'info');
+      }
+    });
+    return () => setUnauthenticatedHandler(() => undefined);
+  }, [qc]);
 
   const value: AuthState = {
     user: me.data ?? null,

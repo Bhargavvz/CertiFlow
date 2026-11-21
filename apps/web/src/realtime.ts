@@ -50,7 +50,13 @@ export function useRealtime(user: AuthUser | null): boolean {
   useEffect(() => {
     if (!user) return;
     const socket = io({ path: '/socket.io', transports: ['websocket'], withCredentials: true });
-    socket.on('connect', () => setConnected(true));
+    let everConnected = false;
+    socket.on('connect', () => {
+      setConnected(true);
+      // After a drop we may have missed events: refetch everything on screen.
+      if (everConnected) void qc.invalidateQueries();
+      everConnected = true;
+    });
     socket.on('disconnect', () => setConnected(false));
     socket.on(REALTIME_CHANNEL, (msg: RealtimeMessage) => {
       const text = describe(msg);

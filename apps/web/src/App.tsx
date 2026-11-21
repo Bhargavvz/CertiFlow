@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth, homePathFor, useAuth } from './auth';
-import { Layout } from './components/Layout';
+import { AppShell } from './components/shell/AppShell';
 import { BatchDetailPage } from './pages/BatchDetailPage';
 import { BatchListPage } from './pages/BatchListPage';
 import { CertificatesPage } from './pages/CertificatesPage';
@@ -28,7 +28,7 @@ export function App() {
       <Route
         element={
           <RequireAuth>
-            <Layout />
+            <AppShell />
           </RequireAuth>
         }
       >

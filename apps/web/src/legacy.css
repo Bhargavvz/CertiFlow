@@ -1,26 +1,14 @@
+/* Styles for pages not yet rebuilt on the design system (removed page by page in
+   steps 3-7). Lives in the "components" cascade layer so Tailwind utilities always win,
+   and its colours alias the design tokens so it follows light/dark mode. */
+@layer components {
 :root {
-  --bg: #f5f7fa;
-  --surface: #ffffff;
-  --text: #1b2430;
-  --muted: #5f6b7a;
-  --border: #dfe4ea;
-  --primary: #1f3b63;
-  --green: #1d7a46;
-  --red: #b42318;
-  --amber: #a15c07;
-  --orange: #c4320a;
-  --blue: #1f5fa8;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: var(--text);
-  background: var(--bg);
-}
-
-* {
-  box-sizing: border-box;
-}
-body {
-  margin: 0;
-  background: var(--bg);
+  --text: var(--fg);
+  --green: var(--status-green-fg);
+  --red: var(--status-red-fg);
+  --amber: var(--status-amber-fg);
+  --orange: var(--status-orange-fg);
+  --blue: var(--primary);
 }
 a {
   color: var(--blue);
@@ -115,7 +103,7 @@ h2 {
 }
 .card.warn {
   border-color: var(--orange);
-  background: #fff6f1;
+  background: var(--status-orange-bg);
 }
 
 .btn {
@@ -187,32 +175,35 @@ textarea {
   white-space: nowrap;
 }
 .chip-grey {
-  background: #eceff3;
-  color: #46505c;
+  background: var(--status-slate-bg);
+  color: var(--status-slate-fg);
 }
 .chip-amber {
-  background: #fff1d6;
+  background: var(--status-amber-bg);
   color: var(--amber);
 }
 .chip-orange {
-  background: #ffe7dc;
+  background: var(--status-orange-bg);
   color: var(--orange);
 }
 .chip-red {
-  background: #fde4e1;
+  background: var(--status-red-bg);
   color: var(--red);
 }
 .chip-green {
-  background: #dcf5e6;
+  background: var(--status-green-bg);
   color: var(--green);
 }
 .chip-blue {
-  background: #e1ecfa;
+  background: var(--status-blue-bg);
   color: var(--blue);
 }
 
 .table {
   width: 100%;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -229,14 +220,14 @@ textarea {
   vertical-align: top;
 }
 .table th {
-  background: #f0f3f7;
+  background: var(--surface-2);
   font-weight: 600;
 }
 .table.errors td:first-child {
   font-weight: 700;
 }
 .row-breached {
-  background: #fff4f2;
+  background: var(--status-red-bg);
 }
 
 .title-row {
@@ -261,7 +252,7 @@ textarea {
 }
 .tabs button {
   border: 1px solid var(--border);
-  background: #eef1f5;
+  background: var(--surface-2);
   padding: 7px 14px;
   border-radius: 6px 6px 0 0;
   cursor: pointer;
@@ -338,17 +329,17 @@ textarea {
 }
 .verdict-valid {
   border-color: var(--green);
-  background: #effaf3;
+  background: var(--status-green-bg);
   color: var(--green);
 }
 .verdict-revoked {
   border-color: var(--red);
-  background: #fff1ef;
+  background: var(--status-red-bg);
   color: var(--red);
 }
 .verdict-not_found {
   border-color: var(--muted);
-  background: #f3f4f6;
+  background: var(--surface-2);
   color: var(--text);
 }
 .verdict dl {
@@ -392,7 +383,7 @@ textarea {
   font: inherit;
 }
 .phone-list button.active {
-  background: #e1ecfa;
+  background: var(--status-blue-bg);
 }
 .phone-screen {
   flex: 1;
@@ -446,4 +437,13 @@ textarea {
   input {
     min-width: 0;
   }
+}
+}
+
+/* Outside the layer on purpose: Tailwind's own `table` utility (display: table) would
+   otherwise win and let old tables push the page wider than a phone screen. */
+table.table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }

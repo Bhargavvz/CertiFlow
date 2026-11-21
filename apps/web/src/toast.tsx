@@ -1,35 +1,26 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+// Toasts via sonner. Errors carry a short "Ref" (the server correlation id) with a
+// copy action, so a support person can find the exact request in the logs.
+import { toast } from 'sonner';
+import { ApiError, friendlyMessage } from './api';
 
 type Tone = 'info' | 'success' | 'error';
-interface Toast {
-  id: number;
-  text: string;
-  tone: Tone;
+
+export function notify(text: string, tone: Tone = 'info', description?: string) {
+  if (tone === 'success') toast.success(text, { description });
+  else if (tone === 'error') toast.error(text, { description });
+  else toast(text, { description });
 }
 
-const ToastContext = createContext<(text: string, tone?: Tone) => void>(() => undefined);
-
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = useCallback((text: string, tone: Tone = 'info') => {
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t.slice(-4), { id, text, tone }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5000);
-  }, []);
-  return (
-    <ToastContext.Provider value={push}>
-      {children}
-      <div className="toasts" role="status" aria-live="polite">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}`}>
-            {t.text}
-          </div>
-        ))}
-      </div>
-    </ToastContext.Provider>
-  );
+export function notifyError(e: unknown, title?: string) {
+  const ref = e instanceof ApiError ? e.correlationId : undefined;
+  toast.error(title ?? friendlyMessage(e), {
+    description: [title ? friendlyMessage(e) : null, ref ? `Ref: ${ref.slice(0, 13)}` : null].filter(Boolean).join(' · ') || undefined,
+    action: ref ? { label: 'Copy ref', onClick: () => void navigator.clipboard?.writeText(ref) } : undefined,
+    duration: 8000,
+  });
 }
 
+/** Kept for pages not yet rebuilt: same call shape as the old toast hook. */
 export function useToast() {
-  return useContext(ToastContext);
+  return notify;
 }
