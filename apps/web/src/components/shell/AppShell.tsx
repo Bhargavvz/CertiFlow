@@ -2,7 +2,7 @@
 // mobile), top bar, and the routed page. Every page renders its own PageHeader.
 import { ROLE_LABELS } from '@certiflow/shared';
 import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, Check, ExternalLink, LogOut, Menu, Monitor, Moon, Smartphone, Sun, Users, Workflow } from 'lucide-react';
+import { BadgeCheck, Check, ExternalLink, LogOut, Menu, Monitor, Moon, Search, Smartphone, Sun, Users, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
@@ -25,7 +25,9 @@ import {
   DropdownMenuTrigger,
   Tooltip,
 } from '../ui/overlays';
+import { CommandPalette, SHORTCUT_LABEL } from './CommandPalette';
 import { navFor, type NavItem } from './nav';
+import { NotificationBell } from './Notifications';
 
 function Brand({ compact, tight }: { compact?: boolean; tight?: boolean }) {
   return (
@@ -226,6 +228,7 @@ export function AppShell() {
   const { user } = useAuth();
   const connected = useRealtime(user);
   const [drawer, setDrawer] = useState(false);
+  const [palette, setPalette] = useState(false);
   if (!user) return null;
   const items = navFor(user.role);
 
@@ -273,11 +276,27 @@ export function AppShell() {
           <span className="md:hidden">
             <Brand tight />
           </span>
-          <div className="flex-1" />
+          {/* Global search: opens the command palette, scoped to what this user may see. */}
+          <div className="flex flex-1 justify-end md:justify-start">
+            <button
+              type="button"
+              onClick={() => setPalette(true)}
+              className="hidden h-9 w-full max-w-sm items-center gap-2 rounded-md border border-border bg-surface-2/60 px-3 text-body text-subtle transition-colors hover:border-border-strong hover:text-muted md:flex"
+            >
+              <Search className="size-4" aria-hidden />
+              <span className="flex-1 text-left">{user.role === 'STATE' ? 'Search batches, certificates…' : 'Search batches…'}</span>
+              <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[0.6875rem] text-muted">{SHORTCUT_LABEL}</kbd>
+            </button>
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setPalette(true)} aria-label="Search">
+              <Search />
+            </Button>
+          </div>
           <LiveIndicator connected={connected} />
+          <NotificationBell />
           <ThemeMenu />
           <UserMenu />
         </header>
+        <CommandPalette open={palette} onOpenChange={setPalette} />
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 focus:outline-none sm:px-6 lg:px-8 lg:py-8">
           <Outlet />
         </main>
