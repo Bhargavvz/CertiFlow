@@ -1,7 +1,21 @@
 node_modules/
 dist/
-.env
-*.log
 coverage/
-.DS_Store
 .vite/
+*.log
+.DS_Store
+
+# secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+
+# local data if someone bind-mounts instead of using the named volumes
+data/
+minio-data/
+pgdata/
+
+# playwright / lighthouse output
+playwright-report/
+test-results/
+lighthouse-*.html
