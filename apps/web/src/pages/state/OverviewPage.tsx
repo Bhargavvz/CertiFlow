@@ -3,11 +3,11 @@
 // axis doesn't already name), thin marks, hover tooltips, and a table view for each.
 import { BATCH_STATUSES } from '@certiflow/shared';
 import { format, parseISO } from 'date-fns';
-import { Award, ArrowRight, Clock3, ListChecks, ShieldX, Siren } from 'lucide-react';
+import { Award, Clock3, ListChecks, ShieldX, Siren } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts';
 import { ChartCard, ChartTooltip, SimpleTable, useChartColors } from '../../components/charts/ChartCard';
-import { PageHeader, StatCard } from '../../components/Display';
+import { PageHeader, StatStrip } from '../../components/Display';
 import { EmptyState, ErrorState, SkeletonBlock } from '../../components/Feedback';
 import { DeliveryProgress } from '../../components/review/DeliveryProgress';
 import { SlaBadge } from '../../components/SlaBadge';
@@ -44,14 +44,16 @@ export default function OverviewPage() {
 
   return (
     <>
-      <PageHeader title="Overview" description="Across all districts: what’s moving, what’s stuck, and whether certificates reach people." />
+      <PageHeader title="State overview" description="Across all districts: what’s moving, what’s stuck, and whether certificates reach people." breadcrumb={[{ label: 'Overview' }]} />
 
-      <section aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Waiting for final approval" value={o.batchesByStatus.PENDING_STATE} icon={ListChecks} tone="amber" to="/queue" hint={`${inReview} in review overall`} />
-        <StatCard label="SLA breaches" value={o.slaBreached} icon={Siren} tone={o.slaBreached > 0 ? 'red' : 'green'} to="/stuck" hint={o.slaBreached ? 'Escalated to you' : 'Nothing overdue'} />
-        <StatCard label="Certificates issued (14 days)" value={formatNumber(issued14)} icon={Award} tone="green" hint={`${formatNumber(o.certificates.issuedThisMonth)} this month`} />
-        <StatCard label="Revoked" value={o.certificates.revoked} icon={ShieldX} to="/certificates" hint={`${formatNumber(o.certificates.valid)} valid in total`} />
-      </section>
+      <StatStrip
+        stats={[
+          { label: 'Waiting for your approval', value: o.batchesByStatus.PENDING_STATE, icon: ListChecks, tone: 'amber', to: '/queue', hint: `${inReview} in review across all steps` },
+          { label: 'SLA breaches', value: o.slaBreached, icon: Siren, tone: o.slaBreached > 0 ? 'red' : 'green', to: '/stuck', hint: o.slaBreached ? 'Escalated to you' : 'Nothing overdue' },
+          { label: 'Issued in 14 days', value: formatNumber(issued14), icon: Award, tone: 'green', hint: `${formatNumber(o.certificates.issuedThisMonth)} this month` },
+          { label: 'Revoked', value: o.certificates.revoked, icon: ShieldX, to: '/certificates', hint: `${formatNumber(o.certificates.valid)} valid certificates` },
+        ]}
+      />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <ChartCard
@@ -143,7 +145,7 @@ export default function OverviewPage() {
                   <p className={cn('mt-1 text-xl font-semibold tabular', overSla ? 'text-status-red-fg' : 'text-fg')}>{s.avgSeconds === null ? '–' : formatDuration(s.avgSeconds)}</p>
                   <p className="text-caption text-muted">
                     {s.samples ? plural(s.samples, 'batch', 'batches') : 'No finished steps yet'}
-                    {overSla && ' · over SLA'}
+                    {overSla && ', over the SLA'}
                   </p>
                 </li>
               );
@@ -158,7 +160,7 @@ export default function OverviewPage() {
           description="Past the SLA or waiting longest, oldest first."
           actions={
             <Link to="/stuck" className="inline-flex items-center gap-1 text-caption font-medium text-primary hover:underline">
-              Full list <ArrowRight className="size-3.5" aria-hidden />
+              See all stuck batches
             </Link>
           }
         />
@@ -174,7 +176,7 @@ export default function OverviewPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-fg">{b.courseName}</span>
                     <span className="block text-caption text-muted">
-                      {b.centre.name} · with {whoHasIt(b.status, b.district.name).toLowerCase()}
+                      {b.centre.name}, with {whoHasIt(b.status, b.district.name).toLowerCase()}
                     </span>
                   </span>
                   <StatusBadge kind="batch" status={b.status} size="sm" />

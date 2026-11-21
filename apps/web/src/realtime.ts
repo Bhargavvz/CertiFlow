@@ -18,7 +18,7 @@ export function describeEvent(msg: RealtimeMessage): string | null {
     case 'BatchApproved':
       return to === 'PENDING_DISTRICT'
         ? `${course}: district approval ${String(p.districtApprovals)} of ${String(p.required)}`
-        : `${course} approved · now ${(batchStatus[to ?? 'PENDING_STATE']?.label ?? '').toLowerCase()}`;
+        : `${course} approved, now ${(batchStatus[to ?? 'PENDING_STATE']?.label ?? '').toLowerCase()}`;
     case 'BatchApprovalWithdrawn':
       return `${course}: an approval was withdrawn`;
     case 'BatchSentBack':

@@ -2,12 +2,12 @@
 // resubmit" flow for a sent-back batch, with the documented rule spelled out:
 // resubmitting resets every earlier approval (docs/DECISIONS.md D6).
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Download, Info, RotateCcw, Send, Upload } from 'lucide-react';
+import { Download, Info, RotateCcw, Send, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, api } from '../../api';
 import { DataTable, type Column } from '../../components/DataTable';
-import { PageHeader, StatCard } from '../../components/Display';
+import { PageHeader, StatStrip } from '../../components/Display';
 import { EmptyState, ErrorState, SkeletonBlock } from '../../components/Feedback';
 import { RelativeTime } from '../../components/RelativeTime';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -28,7 +28,7 @@ function SentBackBanner({ detail }: { detail: BatchDetail }) {
   const sendBack = [...b.approvals].reverse().find((a) => a.decision === 'SEND_BACK' && a.revision === b.revision);
   const resetCount = b.approvals.filter((a) => a.revision === b.revision && !a.superseded && !a.withdrawnAt && a.decision === 'APPROVE').length;
   return (
-    <div role="status" className="mb-6 overflow-hidden rounded-xl border border-status-orange-dot/40 bg-surface">
+    <div role="status" className="mb-6 overflow-hidden rounded-lg border border-status-orange-dot/35 border-l-4 border-l-status-orange-dot bg-surface">
       <div className="flex gap-3 bg-status-orange-bg/70 px-5 py-4">
         <RotateCcw className="mt-0.5 size-5 shrink-0 text-status-orange-fg" aria-hidden />
         <div className="min-w-0">
@@ -36,7 +36,7 @@ function SentBackBanner({ detail }: { detail: BatchDetail }) {
           {b.sendBackReason && <p className="mt-1 text-body text-fg">“{b.sendBackReason}”</p>}
           {sendBack && (
             <p className="mt-1 text-caption text-muted">
-              {sendBack.officer.name} · <span title={formatDateTime(sendBack.createdAt)}><RelativeTime iso={sendBack.createdAt} /></span>
+              Sent back by {sendBack.officer.name}, <span title={formatDateTime(sendBack.createdAt)}><RelativeTime iso={sendBack.createdAt} /></span>
             </p>
           )}
         </div>
@@ -174,27 +174,29 @@ export default function PreparePage() {
           <div className="flex justify-between">
             <Button variant="ghost" asChild>
               <Link to="/dashboard">
-                <ArrowLeft aria-hidden /> Save as draft
+                Save as draft and finish later
               </Link>
             </Button>
             {b.candidateCount > 0 && (
               <Button variant="secondary" onClick={() => setStep('review')}>
-                Keep current list <ArrowRight aria-hidden />
+                Keep the current list
               </Button>
             )}
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          <section aria-label="Batch summary" className="grid gap-3 sm:grid-cols-3">
-            <StatCard label="Candidates" value={b.candidateCount} hint={meta.data ? `Limit ${meta.data.maxImportRows}` : undefined} />
-            <StatCard label="Average score" value={avg} hint="Out of 100" />
-            <StatCard
-              label="Review route"
-              value={quality ? '3 steps' : '2 steps'}
-              hint={quality ? `District → Quality → State (${meta.data?.qualityThreshold}+ candidates)` : 'District → State'}
-            />
-          </section>
+          <StatStrip
+            stats={[
+              { label: 'Candidates', value: b.candidateCount, hint: meta.data ? `Up to ${meta.data.maxImportRows} per batch` : undefined },
+              { label: 'Average score', value: avg, hint: 'Out of 100' },
+              {
+                label: 'Review route',
+                value: quality ? '3 steps' : '2 steps',
+                hint: quality ? `District, then quality, then State (${meta.data?.qualityThreshold}+ candidates)` : 'District, then State',
+              },
+            ]}
+          />
 
           <Card>
             <CardHeader
@@ -211,7 +213,7 @@ export default function PreparePage() {
             </CardBody>
           </Card>
 
-          <div className="flex flex-col-reverse gap-3 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="sticky bottom-4 z-10 flex flex-col-reverse gap-3 rounded-lg border border-border bg-surface/95 p-4 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-caption text-muted">
               After you submit, the batch is locked. Two district officers must approve it
               {quality ? ', then the quality team, then the State office.' : ', then the State office.'}

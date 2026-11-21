@@ -49,7 +49,7 @@ export default function QueuePage() {
           </Link>
           <div className="text-caption text-muted">
             {b.centre.name}
-            {b.revision > 1 && <> · revision {b.revision}</>}
+            {b.revision > 1 && <span className="ml-1.5 text-subtle">(revision {b.revision})</span>}
           </div>
         </div>
       ),

@@ -1,6 +1,7 @@
-import { BadgeCheck, Languages } from 'lucide-react';
+import { Languages } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Brand } from '../../design/Brand';
 import { useI18n } from '../../i18n';
 
 /** Shell for the no-login pages: brand, language switch, content, privacy footer. */
@@ -8,16 +9,10 @@ export function PublicLayout({ children, footer }: { children: ReactNode; footer
   const { t, toggle } = useI18n();
   return (
     <div className="flex min-h-dvh flex-col bg-bg">
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between px-4">
-          <Link to="/verify" className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-fg">
-              <BadgeCheck className="size-[18px]" aria-hidden />
-            </span>
-            <span className="leading-tight">
-              <span className="block font-semibold tracking-tight text-fg">CertiFlow</span>
-              <span className="block text-[0.6875rem] text-muted">{t('brand.programme')}</span>
-            </span>
+      <header className="border-b border-border bg-surface/90 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-2xl items-center justify-between px-4">
+          <Link to="/verify" className="rounded-md" aria-label="CertiFlow, Pragati Skills Mission: verify a certificate">
+            <Brand subtitle={t('brand.programme')} />
           </Link>
           <button
             type="button"

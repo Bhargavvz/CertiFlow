@@ -23,7 +23,7 @@ interface Message {
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`/mock-whatsapp${path}`).catch(() => null);
   if (!res || !res.ok) {
-    const direct = await fetch(`http://localhost:4000${path}`).catch(() => null);
+    const direct = location.hostname === 'localhost' ? await fetch(`http://localhost:4000${path}`).catch(() => null) : null;
     if (direct && direct.ok) return (await direct.json()) as T;
     throw new Error('The mock WhatsApp service is not reachable.');
   }
@@ -69,7 +69,7 @@ export default function PhonePage() {
               <>
                 {' '}
                 <span className={duplicates ? 'font-medium text-status-red-fg' : 'font-medium text-status-green-fg'}>
-                  {list.length} phones · {duplicates ? `${duplicates} with more than one message` : 'no duplicates'}
+                  {list.length} phones, {duplicates ? `${duplicates} with more than one message` : 'no duplicates'}
                 </span>
               </>
             )}
@@ -84,7 +84,7 @@ export default function PhonePage() {
               {list.length === 0 ? (
                 <EmptyState title="No messages yet" description="Give a batch final approval and watch messages arrive here." />
               ) : (
-                <ul className="max-h-[36rem] divide-y divide-border overflow-y-auto">
+                <ul className="relative max-h-[36rem] divide-y divide-border overflow-y-auto">
                   {list.map((p) => (
                     <li key={p.phone}>
                       <button
@@ -125,7 +125,7 @@ export default function PhonePage() {
                     </span>
                   </div>
                   <div
-                    className="flex h-[30rem] flex-col gap-2 overflow-y-auto bg-[#efeae2] px-3 py-4"
+                    className="relative flex h-[30rem] flex-col gap-2 overflow-y-auto bg-[#efeae2] px-3 py-4"
                     aria-live="polite"
                     aria-label={phone ? `Messages to ${phone}` : undefined}
                   >

@@ -61,7 +61,7 @@ export default function DeliveriesPage() {
         <div className="max-w-xs">
           <div className="text-caption text-status-red-fg">{d.lastError ?? 'Unknown error'}</div>
           <div className="text-caption text-muted">
-            {d.attempts} attempts{d.generation > 1 && ` · message ${d.generation}`} · <RelativeTime iso={d.updatedAt} />
+            {d.attempts} attempts{d.generation > 1 && `, message ${d.generation}`}, last <RelativeTime iso={d.updatedAt} />
           </div>
         </div>
       ),

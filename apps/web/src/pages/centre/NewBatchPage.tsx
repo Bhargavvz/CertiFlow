@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createBatchSchema } from '@certiflow/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Download, Info } from 'lucide-react';
+import { Download, Info } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import type { z } from 'zod';
@@ -68,7 +68,7 @@ export default function NewBatchPage() {
                   Cancel
                 </Link>
                 <Button type="submit" loading={form.formState.isSubmitting}>
-                  Continue to upload <ArrowRight aria-hidden />
+                  Continue to upload
                 </Button>
               </div>
             </form>

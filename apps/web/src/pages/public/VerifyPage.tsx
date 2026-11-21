@@ -10,6 +10,8 @@ import { Input } from '../../components/ui/form';
 import { formatDate } from '../../format';
 import { useI18n } from '../../i18n';
 import { cn } from '../../lib/cn';
+import { GuillocheBand } from '../../design/Guilloche';
+import { Seal } from '../../design/Seal';
 import type { PublicCertificate, VerifyResponse } from '../../types';
 import { PublicLayout, publicFetch } from './PublicLayout';
 import { QrScanner } from './QrScanner';
@@ -105,21 +107,35 @@ function ResultCard({ outcome, onRetry }: { outcome: Outcome; onRetry: () => voi
   }
   const valid = r.result === 'VALID';
   return (
-    <section aria-live="polite" className={cn('overflow-hidden rounded-2xl border-2 bg-surface shadow-md', valid ? 'border-status-green-dot' : 'border-status-red-dot')}>
-      <div className={cn('flex items-center gap-4 px-5 py-6', valid ? 'bg-status-green-bg' : 'bg-status-red-bg')}>
-        <span className={cn('grid size-16 shrink-0 place-items-center rounded-full text-white shadow-sm', valid ? 'bg-status-green-dot' : 'bg-status-red-dot')}>
-          {valid ? <ShieldCheck className="size-9" aria-hidden /> : <ShieldX className="size-9" aria-hidden />}
-        </span>
-        <div>
-          <p className={cn('text-caption font-bold uppercase tracking-widest', valid ? 'text-status-green-fg' : 'text-status-red-fg')}>{valid ? 'VALID' : 'REVOKED'}</p>
-          <h2 className={cn('text-xl font-semibold leading-tight', valid ? 'text-status-green-fg' : 'text-status-red-fg')}>
-            {valid ? t('verify.valid.title') : t('verify.revoked.title')}
-          </h2>
-          <p className="mt-1 text-body text-fg">{valid ? t('verify.valid.body') : t('verify.revoked.body')}</p>
+    <section
+      aria-live="polite"
+      aria-label={valid ? t('verify.valid.title') : t('verify.revoked.title')}
+      className={cn('relative overflow-hidden rounded-xl border bg-surface shadow-md', valid ? 'border-status-green-dot/40' : 'border-status-red-dot/45')}
+    >
+      {/* Status band across the top, in the result's ink */}
+      <div className={cn('h-1.5', valid ? 'bg-status-green-dot' : 'bg-status-red-dot')} aria-hidden />
+      <div className="relative px-5 pb-2 pt-6 sm:px-7">
+        <GuillocheBand className={cn('pointer-events-none absolute inset-x-0 top-0 h-16 w-full', valid ? 'text-status-green-dot/15' : 'text-status-red-dot/15')} />
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0 pt-1">
+            <p className={cn('inline-flex items-center gap-1.5 text-body font-semibold', valid ? 'text-status-green-fg' : 'text-status-red-fg')}>
+              {valid ? <ShieldCheck className="size-4" aria-hidden /> : <ShieldX className="size-4" aria-hidden />}
+              {valid ? 'Valid' : 'Revoked'}
+            </p>
+            <h2 className="mt-1 font-display text-[1.625rem] font-semibold leading-tight tracking-tight text-fg">{valid ? t('verify.valid.title') : t('verify.revoked.title')}</h2>
+            <p className="mt-2 max-w-md text-body text-muted">{valid ? t('verify.valid.body') : t('verify.revoked.body')}</p>
+          </div>
+          <Seal
+            tone={valid ? 'valid' : 'revoked'}
+            label={valid ? 'VERIFIED ✦ PRAGATI SKILLS MISSION ✦' : 'REVOKED ✦ NOT VALID ✦ DO NOT ACCEPT ✦'}
+            size={112}
+            press
+            className="-mr-1 -mt-1 hidden min-[420px]:block"
+          />
         </div>
-      </div>
-      <div className="px-5 py-1">
-        <Details c={r.certificate} />
+        <div className="relative mt-4">
+          <Details c={r.certificate} />
+        </div>
       </div>
     </section>
   );

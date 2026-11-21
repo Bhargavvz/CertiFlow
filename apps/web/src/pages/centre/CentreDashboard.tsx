@@ -1,8 +1,9 @@
-// Training centre home: what needs me, then the numbers, then recent activity.
-import { ArrowRight, Award, CircleDashed, Clock3, FilePlus2, RotateCcw, Upload } from 'lucide-react';
+// Training centre home. Order of the page = order of importance: the batch an officer
+// is waiting on, then the numbers, then everything else in flight.
+import { Award, CircleDashed, Clock3, FilePlus2, RotateCcw, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth';
-import { PageHeader, StatCard } from '../../components/Display';
+import { PageHeader, StatStrip } from '../../components/Display';
 import { EmptyState, ErrorState, SkeletonBlock } from '../../components/Feedback';
 import { RelativeTime } from '../../components/RelativeTime';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -10,52 +11,76 @@ import { StepProgress } from '../../components/StepProgress';
 import { Button } from '../../components/ui/button';
 import { Card, CardHeader } from '../../components/ui/card';
 import { formatNumber, plural } from '../../format';
-import { needsQuality } from '../../lib/workflow';
+import { needsQuality, whoHasIt } from '../../lib/workflow';
 import { useBatches, useMeta, useStats } from '../../queries';
 import type { BatchSummary } from '../../types';
 
+function greeting(): string {
+  const h = Number(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false }));
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+/** The most urgent sent-back batch, given the room it deserves. */
+function SentBackLead({ b }: { b: BatchSummary }) {
+  return (
+    <section aria-label="Sent back for changes" className="mb-6 overflow-hidden rounded-xl border border-status-orange-dot/35 bg-surface">
+      <div className="flex flex-col gap-5 border-l-4 border-status-orange-dot p-5 sm:flex-row sm:items-center sm:p-6">
+        <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-status-orange-bg text-status-orange-fg">
+          <RotateCcw className="size-5" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-caption font-semibold text-status-orange-fg">An officer sent this back</p>
+          <h2 className="mt-0.5 text-section text-fg">{b.courseName}</h2>
+          {b.sendBackReason && <p className="mt-2 max-w-2xl rounded-md bg-surface-2 px-3 py-2 text-body text-fg">“{b.sendBackReason}”</p>}
+          <p className="mt-2 text-caption text-muted">
+            {plural(b.candidateCount, 'candidate')}, sent back <RelativeTime iso={b.updatedAt} />
+          </p>
+        </div>
+        <Button asChild size="lg" className="shrink-0">
+          <Link to={`/batches/${b.id}/prepare`}>Fix and resubmit</Link>
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function ActionRow({ b }: { b: BatchSummary }) {
   const sentBack = b.status === 'SENT_BACK';
+  const empty = b.candidateCount === 0;
   return (
     <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
-      <span
-        className={
-          sentBack
-            ? 'grid size-9 shrink-0 place-items-center rounded-lg bg-status-orange-bg text-status-orange-fg'
-            : 'grid size-9 shrink-0 place-items-center rounded-lg bg-status-slate-bg text-status-slate-fg'
-        }
-      >
-        {sentBack ? <RotateCcw className="size-4" aria-hidden /> : <CircleDashed className="size-4" aria-hidden />}
-      </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
-          <Link to={`/batches/${b.id}`} className="font-medium text-fg hover:underline">
+          <Link to={`/batches/${b.id}`} className="font-semibold text-fg hover:text-primary hover:underline underline-offset-4">
             {b.courseName}
           </Link>
           <StatusBadge kind="batch" status={b.status} size="sm" />
         </p>
-        {sentBack && b.sendBackReason ? (
-          <p className="mt-0.5 line-clamp-2 text-caption text-status-orange-fg">“{b.sendBackReason}”</p>
-        ) : (
-          <p className="mt-0.5 text-caption text-muted">
-            {b.candidateCount ? plural(b.candidateCount, 'candidate') : 'No candidates uploaded yet'} · updated <RelativeTime iso={b.updatedAt} />
-          </p>
-        )}
+        <p className="mt-0.5 text-caption text-muted">
+          {sentBack && b.sendBackReason ? (
+            <span className="text-status-orange-fg">“{b.sendBackReason}”</span>
+          ) : empty ? (
+            'No candidates uploaded yet'
+          ) : (
+            <>
+              {plural(b.candidateCount, 'candidate')}, ready to submit
+            </>
+          )}
+        </p>
       </div>
-      <Button asChild size="sm" variant={sentBack ? 'primary' : 'secondary'}>
+      <span className="text-caption text-muted sm:w-28 sm:text-right">
+        <RelativeTime iso={b.updatedAt} />
+      </span>
+      <Button asChild size="sm" variant={sentBack ? 'primary' : 'secondary'} className="sm:w-40">
         <Link to={`/batches/${b.id}/prepare`}>
           {sentBack ? (
-            <>
-              Fix and resubmit <ArrowRight aria-hidden />
-            </>
-          ) : b.candidateCount ? (
-            <>
-              Review and submit <ArrowRight aria-hidden />
-            </>
-          ) : (
+            'Fix and resubmit'
+          ) : empty ? (
             <>
               <Upload aria-hidden /> Upload candidates
             </>
+          ) : (
+            'Review and submit'
           )}
         </Link>
       </Button>
@@ -72,19 +97,20 @@ export default function CentreDashboard() {
   const s = stats.data;
   const inReview = s ? s.batchesByStatus.PENDING_DISTRICT + s.batchesByStatus.PENDING_QUALITY + s.batchesByStatus.PENDING_STATE : 0;
   const all = batches.data ?? [];
-  // Sent back first (someone is waiting on us), then drafts, oldest first within each.
-  const needsMe = all
-    .filter((b) => b.status === 'SENT_BACK' || b.status === 'DRAFT')
-    .sort((a, b) => (a.status === b.status ? a.updatedAt.localeCompare(b.updatedAt) : a.status === 'SENT_BACK' ? -1 : 1));
-  const recent = all.filter((b) => b.status !== 'DRAFT' && b.status !== 'SENT_BACK').slice(0, 6);
+  const sentBack = all.filter((b) => b.status === 'SENT_BACK').sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+  const drafts = all.filter((b) => b.status === 'DRAFT').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const lead = sentBack[0];
+  const actionRows = [...sentBack.slice(1), ...drafts];
+  const inFlight = all.filter((b) => b.status !== 'DRAFT' && b.status !== 'SENT_BACK').slice(0, 7);
 
   return (
     <>
       <PageHeader
-        title={`Welcome back, ${user?.name.split(' ')[0] ?? ''}`}
-        description="Your batches from upload to certificates on candidates’ phones."
+        title={`${greeting()}, ${user?.name.split(' ')[0] ?? ''}`}
+        description="Your centre’s batches, from spreadsheet to certificates on candidates’ phones."
+        breadcrumb={[{ label: 'Dashboard' }]}
         actions={
-          <Button asChild>
+          <Button asChild size="lg">
             <Link to="/batches/new">
               <FilePlus2 aria-hidden /> New batch
             </Link>
@@ -92,35 +118,39 @@ export default function CentreDashboard() {
         }
       />
 
+      {lead && <SentBackLead b={lead} />}
+
       {stats.error ? (
         <ErrorState error={stats.error} onRetry={() => void stats.refetch()} />
       ) : (
-        <section aria-label="Summary" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          <StatCard label="Drafts" value={s?.batchesByStatus.DRAFT ?? 0} icon={CircleDashed} tone="slate" loading={stats.isLoading} hint="Not submitted yet" />
-          <StatCard label="In review" value={inReview} icon={Clock3} tone="amber" loading={stats.isLoading} hint={s ? `${formatNumber(s.candidatesInReview)} candidates` : undefined} />
-          <StatCard label="Sent back" value={s?.batchesByStatus.SENT_BACK ?? 0} icon={RotateCcw} tone="orange" loading={stats.isLoading} hint="Waiting for your fix" />
-          <StatCard label="Issued this month" value={s?.certificates.issuedThisMonth ?? 0} icon={Award} tone="green" loading={stats.isLoading} hint="Certificates" />
-          <StatCard
-            label="Candidates certified"
-            value={s?.certificates.valid ?? 0}
-            icon={Award}
-            loading={stats.isLoading}
-            hint={s && s.certificates.revoked > 0 ? `${s.certificates.revoked} revoked` : 'All time'}
-          />
-        </section>
+        <StatStrip
+          loading={stats.isLoading}
+          stats={[
+            { label: 'Drafts', value: s?.batchesByStatus.DRAFT ?? 0, icon: CircleDashed, tone: 'slate', hint: 'Not submitted yet' },
+            { label: 'In review', value: inReview, icon: Clock3, tone: 'amber', hint: s ? `${formatNumber(s.candidatesInReview)} candidates waiting` : undefined },
+            { label: 'Sent back', value: s?.batchesByStatus.SENT_BACK ?? 0, icon: RotateCcw, tone: 'orange', hint: 'Waiting for your fix' },
+            { label: 'Issued this month', value: s?.certificates.issuedThisMonth ?? 0, icon: Award, tone: 'green', hint: 'Certificates' },
+            {
+              label: 'Candidates certified',
+              value: s?.certificates.valid ?? 0,
+              icon: Award,
+              hint: s && s.certificates.revoked > 0 ? `${s.certificates.revoked} revoked` : 'All time',
+            },
+          ]}
+        />
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <Card>
-          <CardHeader title="Needs your action" description="Sent-back batches first: an officer is waiting on your fix." />
+          <CardHeader title="Waiting on you" description={lead ? 'Other batches you can finish now.' : 'Batches you can finish now.'} />
           {batches.isLoading ? (
-            <SkeletonBlock className="p-5" />
+            <SkeletonBlock className="px-5 pb-5" />
           ) : batches.error ? (
             <ErrorState error={batches.error} onRetry={() => void batches.refetch()} />
-          ) : needsMe.length === 0 ? (
+          ) : actionRows.length === 0 ? (
             <EmptyState
-              title="You’re all caught up"
-              description="Nothing is waiting for you. Start a new batch when a course finishes."
+              title={lead ? 'Nothing else to finish' : 'You’re all caught up'}
+              description="When a course finishes, create a batch and upload its candidates."
               action={
                 <Button asChild variant="secondary" size="sm">
                   <Link to="/batches/new">
@@ -130,8 +160,8 @@ export default function CentreDashboard() {
               }
             />
           ) : (
-            <ul className="divide-y divide-border">
-              {needsMe.map((b) => (
+            <ul className="divide-y divide-border border-t border-border">
+              {actionRows.map((b) => (
                 <ActionRow key={b.id} b={b} />
               ))}
             </ul>
@@ -141,29 +171,31 @@ export default function CentreDashboard() {
         <Card>
           <CardHeader
             title="In progress"
-            description="Where your submitted batches are now."
+            description="Submitted batches and who has them."
             actions={
-              <Link to="/batches" className="text-caption font-medium text-primary hover:underline">
+              <Link to="/batches" className="text-caption font-semibold text-primary hover:underline underline-offset-4">
                 All batches
               </Link>
             }
           />
           {batches.isLoading ? (
-            <SkeletonBlock className="p-5" />
-          ) : recent.length === 0 ? (
-            <EmptyState title="Nothing submitted yet" description="Submitted batches show up here with their approval progress." />
+            <SkeletonBlock className="px-5 pb-5" />
+          ) : inFlight.length === 0 ? (
+            <EmptyState title="Nothing submitted yet" description="Once you submit a batch, you can follow it through each approval here." />
           ) : (
-            <ul className="divide-y divide-border">
-              {recent.map((b) => (
+            <ul className="divide-y divide-border border-t border-border">
+              {inFlight.map((b) => (
                 <li key={b.id}>
-                  <Link to={`/batches/${b.id}`} className="flex flex-col gap-2 px-5 py-3.5 transition-colors hover:bg-surface-2/60">
+                  <Link to={`/batches/${b.id}`} className="block px-5 py-3.5 transition-colors hover:bg-primary-soft/40">
                     <span className="flex items-center justify-between gap-3">
-                      <span className="truncate font-medium text-fg">{b.courseName}</span>
+                      <span className="truncate font-semibold text-fg">{b.courseName}</span>
                       <StatusBadge kind="batch" status={b.status} size="sm" />
                     </span>
-                    <span className="flex items-center justify-between gap-3 text-caption text-muted">
+                    <span className="mt-2 flex items-center justify-between gap-3">
                       <StepProgress status={b.status} needsQuality={needsQuality(b.candidateCount, meta.data)} variant="compact" />
-                      <RelativeTime iso={b.updatedAt} />
+                      <span className="truncate text-caption text-muted">
+                        {b.status.startsWith('PENDING') ? `With ${whoHasIt(b.status, b.district.name).toLowerCase()}` : <RelativeTime iso={b.updatedAt} />}
+                      </span>
                     </span>
                   </Link>
                 </li>

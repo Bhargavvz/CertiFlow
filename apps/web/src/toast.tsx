@@ -14,7 +14,7 @@ export function notify(text: string, tone: Tone = 'info', description?: string) 
 export function notifyError(e: unknown, title?: string) {
   const ref = e instanceof ApiError ? e.correlationId : undefined;
   toast.error(title ?? friendlyMessage(e), {
-    description: [title ? friendlyMessage(e) : null, ref ? `Ref: ${ref.slice(0, 13)}` : null].filter(Boolean).join(' · ') || undefined,
+    description: [title ? friendlyMessage(e) : null, ref ? `Ref: ${ref.slice(0, 13)}` : null].filter(Boolean).join('. ') || undefined,
     action: ref ? { label: 'Copy ref', onClick: () => void navigator.clipboard?.writeText(ref) } : undefined,
     duration: 8000,
   });

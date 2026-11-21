@@ -3,7 +3,7 @@
 import { CheckCircle2, Siren } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DataTable, type Column } from '../../components/DataTable';
-import { PageHeader, StatCard } from '../../components/Display';
+import { PageHeader, StatStrip } from '../../components/Display';
 import { EmptyState } from '../../components/Feedback';
 import { RelativeTime } from '../../components/RelativeTime';
 import { SlaBadge } from '../../components/SlaBadge';
@@ -28,7 +28,7 @@ export default function StuckPage() {
             {b.courseName}
           </Link>
           <div className="text-caption text-muted">
-            {b.centre.name} · {b.district.name}
+            {b.centre.name}, {b.district.name}
           </div>
         </div>
       ),
@@ -72,15 +72,15 @@ export default function StuckPage() {
         }
         breadcrumb={[{ label: 'Overview', to: '/overview' }, { label: 'Stuck' }]}
       />
-      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3">
-        <StatCard label="SLA breached" value={d?.breached.length ?? 0} icon={Siren} tone={d && d.breached.length > 0 ? 'red' : 'green'} loading={stuck.isLoading} />
-        <StatCard label="In review" value={d?.waiting.length ?? 0} loading={stuck.isLoading} />
-        <StatCard
-          label="Oldest wait"
-          value={d && d.waiting.length ? formatDuration(Math.max(...d.waiting.map((w) => w.ageSeconds))) : '–'}
-          loading={stuck.isLoading}
-        />
-      </section>
+      <StatStrip
+        className="mb-6"
+        loading={stuck.isLoading}
+        stats={[
+          { label: 'SLA breached', value: d?.breached.length ?? 0, icon: Siren, tone: d && d.breached.length > 0 ? 'red' : 'green', hint: 'Escalated to you automatically' },
+          { label: 'In review', value: d?.waiting.length ?? 0, hint: 'Across every district' },
+          { label: 'Longest wait', value: d && d.waiting.length ? formatDuration(Math.max(...d.waiting.map((w) => w.ageSeconds))) : '–', hint: 'Time at the current step' },
+        ]}
+      />
       <DataTable
         caption="Batches in review"
         rows={d?.waiting}

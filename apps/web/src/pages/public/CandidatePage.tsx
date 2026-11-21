@@ -5,6 +5,8 @@ import { Award, Check, Download, Link2Off, Loader2, Share2, ShieldX } from 'luci
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CopyButton } from '../../components/CopyButton';
+import { GuillocheBand } from '../../design/Guilloche';
+import { Seal } from '../../design/Seal';
 import { formatDate } from '../../format';
 import { useI18n } from '../../i18n';
 import type { CandidateView } from '../../types';
@@ -34,7 +36,7 @@ export default function CandidatePage() {
   if (!c) {
     return (
       <PublicLayout>
-        <section className="rounded-2xl border border-border bg-surface p-6 text-center">
+        <section className="rounded-xl border border-border bg-surface p-8 text-center">
           <span className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-surface-2 text-muted">
             <Link2Off className="size-6" aria-hidden />
           </span>
@@ -46,7 +48,7 @@ export default function CandidatePage() {
   }
 
   const share = async () => {
-    const text = `${c.courseName} · ${c.certificateNumber}`;
+    const text = `${c.courseName}, certificate ${c.certificateNumber}`;
     try {
       if (navigator.share) await navigator.share({ title: 'Certificate', text, url: c.verifyUrl });
       else {
@@ -64,17 +66,27 @@ export default function CandidatePage() {
   return (
     <PublicLayout>
       {revoked ? (
-        <section role="alert" className="rounded-2xl border-2 border-status-red-dot bg-status-red-bg p-6">
+        <section role="alert" className="rounded-xl border border-status-red-dot/45 border-l-4 border-l-status-red-dot bg-surface p-6">
           <ShieldX className="size-10 text-status-red-fg" aria-hidden />
           <h1 className="mt-3 text-xl font-semibold text-status-red-fg">{t('candidate.revoked.title')}</h1>
           <p className="mt-1 text-body text-fg">{t('candidate.revoked.body')}</p>
         </section>
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-md">
-          <div className="bg-primary px-6 py-8 text-primary-fg">
-            <Award className="size-10 opacity-90" aria-hidden />
-            <h1 className="mt-3 text-2xl font-semibold leading-tight">{t('candidate.hello', { name: c.firstName })}</h1>
-            <p className="mt-1 opacity-90">{t('candidate.ready')}</p>
+        <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-md">
+          {/* Opens like the certificate itself: guilloche border, then the seal. */}
+          <div className="relative overflow-hidden bg-ink px-6 pb-7 pt-8 text-ink-fg">
+            <GuillocheBand className="pointer-events-none absolute inset-x-0 top-0 h-12 w-full text-ink-fg/15" />
+            <GuillocheBand className="pointer-events-none absolute inset-x-0 bottom-0 h-12 w-full rotate-180 text-ink-fg/10" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <Award className="size-7 text-ink-muted" aria-hidden />
+                <h1 className="mt-3 font-display text-[1.75rem] font-semibold leading-tight tracking-tight">{t('candidate.hello', { name: c.firstName })}</h1>
+                <p className="mt-1 text-ink-muted">{t('candidate.ready')}</p>
+              </div>
+              <span className="text-ink-fg">
+                <Seal tone="ink" label="PRAGATI SKILLS MISSION ✦ CERTIFIED ✦" size={92} press onDark className="!text-ink-fg" />
+              </span>
+            </div>
           </div>
           <div className="flex flex-col gap-5 px-6 py-6">
             <div>
@@ -97,7 +109,7 @@ export default function CandidatePage() {
             {c.downloadPath && (
               <a
                 href={c.downloadPath}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary text-[0.9375rem] font-semibold text-primary-fg shadow-sm transition-colors hover:bg-primary-hover"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary text-[0.9375rem] font-semibold text-primary-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] transition-colors hover:bg-primary-hover"
               >
                 <Download className="size-5" aria-hidden /> {t('candidate.download')}
               </a>

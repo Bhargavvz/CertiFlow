@@ -3,7 +3,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  ArrowRight,
   Award,
   FileDown,
   RotateCcw,
@@ -51,7 +50,7 @@ function ApprovalsPanel({ detail, onWithdraw, withdrawing }: { detail: BatchDeta
 
   return (
     <Card>
-      <CardHeader title={b.revision > 0 ? `Decisions · revision ${b.revision}` : 'Decisions'} description={b.status === 'PENDING_DISTRICT' ? `${detail.districtApprovals.count} of ${detail.districtApprovals.required} district approvals` : undefined} />
+      <CardHeader title={b.revision > 1 ? `Decisions on revision ${b.revision}` : 'Decisions'} description={b.status === 'PENDING_DISTRICT' ? `${detail.districtApprovals.count} of ${detail.districtApprovals.required} district approvals` : undefined} />
       <CardBody className="flex flex-col gap-3">
         {current.length === 0 ? (
           <p className="text-body text-muted">{b.revision === 0 ? 'Not submitted yet.' : 'No decisions on this revision yet.'}</p>
@@ -66,11 +65,11 @@ function ApprovalsPanel({ detail, onWithdraw, withdrawing }: { detail: BatchDeta
                     {a.officerId === user?.id && <span className="text-muted"> (you)</span>}
                   </p>
                   <p className="text-caption text-muted">
-                    {humanise(a.step)} step · <RelativeTime iso={a.createdAt} />
+                    {humanise(a.step)} step, <RelativeTime iso={a.createdAt} />
                     {a.withdrawnAt && (
                       <>
                         {' '}
-                        · withdrawn <RelativeTime iso={a.withdrawnAt} />
+                        , withdrawn <RelativeTime iso={a.withdrawnAt} />
                       </>
                     )}
                   </p>
@@ -95,7 +94,7 @@ function ApprovalsPanel({ detail, onWithdraw, withdrawing }: { detail: BatchDeta
             <ul className="mt-2 flex flex-col gap-1 border-l-2 border-border pl-3">
               {earlier.map((a) => (
                 <li key={a.id} className="text-muted">
-                  r{a.revision} · {a.officer.name} {VERB[a.decision]} at {humanise(a.step).toLowerCase()} step
+                  Revision {a.revision}: {a.officer.name} {VERB[a.decision]} at the {humanise(a.step).toLowerCase()} step
                   {a.reason && <> – “{a.reason}”</>}
                 </li>
               ))}
@@ -296,24 +295,36 @@ export default function BatchDetailPage() {
             <StatusBadge kind="batch" status={b.status} />
             {b.revision > 1 && <Pill tone="slate">Revision {b.revision}</Pill>}
             {isReviewState(b.status) && <SlaBadge enteredAt={b.currentStepEnteredAt} slaSeconds={meta.data?.slaSeconds} breachedAt={b.slaBreachedAt} />}
-            <span className="text-caption text-muted">
-              {b.centre.name} · {b.district.name} district · {plural(b.candidateCount, 'candidate')}
-            </span>
           </>
         }
         actions={
           d.allowed.edit && (
-            <Button asChild variant={b.status === 'SENT_BACK' ? 'primary' : 'secondary'}>
-              <Link to={`/batches/${b.id}/prepare`}>
-                {b.status === 'SENT_BACK' ? 'Fix and resubmit' : b.candidateCount ? 'Review and submit' : 'Upload candidates'} <ArrowRight aria-hidden />
-              </Link>
+            <Button asChild size="lg" variant={b.status === 'SENT_BACK' ? 'primary' : 'secondary'}>
+              <Link to={`/batches/${b.id}/prepare`}>{b.status === 'SENT_BACK' ? 'Fix and resubmit' : b.candidateCount ? 'Review and submit' : 'Upload candidates'}</Link>
             </Button>
           )
         }
       />
 
-      <Card className="mb-6">
-        <CardBody className="py-5">
+      {/* Dossier: the batch's key facts in one ruled row, then the approval route. */}
+      <Card className="mb-6 overflow-hidden">
+        <dl className="grid grid-cols-2 border-b border-border sm:grid-cols-4">
+          {[
+            ['Training centre', b.centre.name],
+            ['District', b.district.name],
+            ['Candidates', formatNumber(b.candidateCount)],
+            [
+              isReviewState(b.status) ? 'Waiting for' : 'Last change',
+              isReviewState(b.status) ? whoHasIt(b.status, b.district.name) : <RelativeTime iso={b.updatedAt} />,
+            ],
+          ].map(([k, v], i) => (
+            <div key={String(k)} className={cn('min-w-0 px-5 py-3.5', i > 0 && 'border-l border-border', i === 2 && 'max-sm:border-l-0 max-sm:border-t', i === 3 && 'max-sm:border-t')}>
+              <dt className="text-micro font-medium text-muted">{k}</dt>
+              <dd className="mt-0.5 truncate font-semibold text-fg">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="px-5 py-6">
           <StepProgress
             status={b.status}
             needsQuality={d.needsQualityReview}
@@ -321,35 +332,35 @@ export default function BatchDetailPage() {
             rejectedAt={rejection?.step}
           />
           {isReviewState(b.status) && (
-            <p className="mt-4 text-center text-caption text-muted">
-              Waiting for <span className="font-medium text-fg">{whoHasIt(b.status, b.district.name).toLowerCase()}</span> since{' '}
-              <span title={formatDateTime(b.currentStepEnteredAt)}>
+            <p className="mt-5 text-center text-caption text-muted">
+              At this step since{' '}
+              <span title={formatDateTime(b.currentStepEnteredAt)} className="font-medium text-fg">
                 <RelativeTime iso={b.currentStepEnteredAt} />
               </span>
             </p>
           )}
-        </CardBody>
+        </div>
       </Card>
 
       {sendBack && (
-        <div role="status" className="mb-6 flex gap-3 rounded-xl border border-status-orange-dot/40 bg-status-orange-bg/60 px-5 py-4">
+        <div role="status" className="mb-6 flex gap-3 rounded-lg border border-status-orange-dot/35 border-l-4 border-l-status-orange-dot bg-surface px-5 py-4">
           <RotateCcw className="mt-0.5 size-5 shrink-0 text-status-orange-fg" aria-hidden />
           <div>
             <p className="font-semibold text-status-orange-fg">Sent back by {sendBack.officer.name}</p>
-            <p className="mt-0.5 text-body text-fg">“{sendBack.reason}”</p>
-            <p className="mt-1 text-caption text-muted">
-              <RelativeTime iso={sendBack.createdAt} /> · resubmitting resets all approvals on this revision
+            <p className="mt-1.5 rounded-md bg-surface-2 px-3 py-2 text-body text-fg">“{sendBack.reason}”</p>
+            <p className="mt-1.5 text-caption text-muted">
+              <RelativeTime iso={sendBack.createdAt} />. Resubmitting resets every approval on this revision.
             </p>
           </div>
         </div>
       )}
       {rejection && (
-        <div role="status" className="mb-6 flex gap-3 rounded-xl border border-status-red-dot/40 bg-status-red-bg/60 px-5 py-4">
+        <div role="status" className="mb-6 flex gap-3 rounded-lg border border-status-red-dot/35 border-l-4 border-l-status-red-dot bg-surface px-5 py-4">
           <XCircle className="mt-0.5 size-5 shrink-0 text-status-red-fg" aria-hidden />
           <div>
-            <p className="font-semibold text-status-red-fg">Rejected by {rejection.officer.name} (final)</p>
-            <p className="mt-0.5 text-body text-fg">“{rejection.reason}”</p>
-            <p className="mt-1 text-caption text-muted">
+            <p className="font-semibold text-status-red-fg">Rejected by {rejection.officer.name}. This is final.</p>
+            <p className="mt-1.5 rounded-md bg-surface-2 px-3 py-2 text-body text-fg">“{rejection.reason}”</p>
+            <p className="mt-1.5 text-caption text-muted">
               <RelativeTime iso={rejection.createdAt} />
             </p>
           </div>
