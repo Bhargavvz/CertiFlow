@@ -132,8 +132,11 @@ services:
       MOCK_FAIL_429: ${MOCK_FAIL_429:-0.05}
       MOCK_WEBHOOK_FAIL: ${MOCK_WEBHOOK_FAIL:-0.02}
       MOCK_HANG_MS: ${MOCK_HANG_MS:-10000}
+      # The fake provider keeps its inbox on a volume, so the candidate phone survives restarts.
+      MOCK_STORE_PATH: /data/inbox.json
     command: ['npx', 'tsx', 'apps/mock-whatsapp/src/index.ts']
     ports: ['4000:4000']
+    volumes: [mockdata:/data]
 
   web:
     build:
@@ -147,3 +150,4 @@ volumes:
   pgdata:
   redisdata:
   miniodata:
+  mockdata:

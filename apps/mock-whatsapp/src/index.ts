@@ -23,6 +23,7 @@ const mock = createMockWhatsapp({
   latencyMaxMs: num('MOCK_LATENCY_MAX_MS', 400),
   webhookDelayMs: num('MOCK_WEBHOOK_DELAY_MS', 800),
   hangMs: num('MOCK_HANG_MS', 10_000),
+  storePath: process.env.MOCK_STORE_PATH || undefined,
 });
 
 const port = num('MOCK_PORT', 4000);

@@ -6,6 +6,9 @@
 //  - delivery receipt webhook ("delivered"/"failed"), signed with HMAC-SHA256
 //  - GET /phones, /phones/:phone/messages and an HTML page to play "the candidate's phone"
 import { createHmac, randomUUID } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import express, { type Express } from 'express';
 import { z } from 'zod';
 
@@ -24,6 +27,11 @@ export interface MockOptions {
   /** How long an injected timeout keeps the connection open. */
   hangMs: number;
   random?: () => number;
+  /**
+   * Where to keep the inbox between restarts (a JSON file on a volume). Without it the
+   * inbox is in memory only, which is what the tests want.
+   */
+  storePath?: string;
 }
 
 export interface StoredMessage {
@@ -82,6 +90,31 @@ export function createMockWhatsapp(initial: MockOptions) {
   let stats = emptyStats();
   const timers = new Set<NodeJS.Timeout>();
 
+  // Persistence: a real provider keeps message history (and idempotency keys) across
+  // restarts. Load once at start; save at most every 250ms, via temp file + rename so a
+  // crash mid-write can't leave a half-written file.
+  if (opts.storePath && existsSync(opts.storePath)) {
+    try {
+      const saved = JSON.parse(readFileSync(opts.storePath, 'utf8')) as StoredMessage[];
+      for (const m of saved) byKey.set(m.idempotencyKey, m);
+    } catch {
+      /* unreadable file: start empty rather than crash the demo */
+    }
+  }
+  let saveTimer: NodeJS.Timeout | null = null;
+  const persist = () => {
+    if (!opts.storePath || saveTimer) return;
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      const file = opts.storePath!;
+      const tmp = `${file}.tmp`;
+      void mkdir(dirname(file), { recursive: true })
+        .then(() => writeFile(tmp, JSON.stringify([...byKey.values()])))
+        .then(() => rename(tmp, file))
+        .catch(() => undefined);
+    }, 250);
+  };
+
   const later = (ms: number, fn: () => void) => {
     const t = setTimeout(() => {
       timers.delete(t);
@@ -121,9 +154,11 @@ export function createMockWhatsapp(initial: MockOptions) {
     const msg: StoredMessage = { messageId: `wamid.${randomUUID()}`, idempotencyKey: key, ...input, status: 'accepted', createdAt: now, updatedAt: now };
     byKey.set(key, msg);
     stats.accepted++;
+    persist();
     later(opts.webhookDelayMs, () => {
       msg.status = rand() < opts.webhookFail ? 'failed' : 'delivered';
       msg.updatedAt = new Date().toISOString();
+      persist();
       void postWebhook(msg);
     });
     return msg;
@@ -192,11 +227,19 @@ export function createMockWhatsapp(initial: MockOptions) {
   // ---- demo / test helpers -------------------------------------------------
 
   app.get('/phones', (_req, res) => {
-    const phones = new Map<string, { phone: string; count: number; lastAt: string }>();
+    // Per phone: how many messages, how many the handset reported delivered or failed,
+    // and the latest text for a chat-list preview.
+    interface PhoneSummary { phone: string; count: number; delivered: number; failed: number; lastAt: string; lastText: string }
+    const phones = new Map<string, PhoneSummary>();
     for (const m of byKey.values()) {
-      const p = phones.get(m.to) ?? { phone: m.to, count: 0, lastAt: m.createdAt };
+      const p = phones.get(m.to) ?? { phone: m.to, count: 0, delivered: 0, failed: 0, lastAt: m.createdAt, lastText: m.text };
       p.count++;
-      if (m.createdAt > p.lastAt) p.lastAt = m.createdAt;
+      if (m.status === 'delivered') p.delivered++;
+      if (m.status === 'failed') p.failed++;
+      if (m.createdAt >= p.lastAt) {
+        p.lastAt = m.createdAt;
+        p.lastText = m.text;
+      }
       phones.set(m.to, p);
     }
     res.json({ phones: [...phones.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt)) });
@@ -225,6 +268,7 @@ export function createMockWhatsapp(initial: MockOptions) {
   app.post('/admin/reset', (_req, res) => {
     byKey.clear();
     stats = emptyStats();
+    persist();
     res.json({ ok: true });
   });
 
@@ -242,6 +286,7 @@ export function createMockWhatsapp(initial: MockOptions) {
     close() {
       for (const t of timers) clearTimeout(t);
       timers.clear();
+      if (saveTimer) clearTimeout(saveTimer);
     },
   };
 }
