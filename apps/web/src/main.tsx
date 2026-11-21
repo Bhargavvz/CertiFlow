@@ -9,7 +9,6 @@ import { AuthProvider } from './auth';
 import { TooltipProvider } from './components/ui/overlays';
 import { ThemeProvider, useTheme } from './design/theme';
 import './design/tokens.css';
-import './legacy.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

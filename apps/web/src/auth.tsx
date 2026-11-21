@@ -74,11 +74,24 @@ export function useAuth(): AuthState {
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <p className="page">Loading...</p>;
+  if (loading)
+    return (
+      <p role="status" className="grid min-h-dvh place-items-center text-body text-muted">
+        Loading CertiFlow…
+      </p>
+    );
   if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   return <>{children}</>;
 }
 
+/** Where each role lands after signing in. */
 export function homePathFor(user: AuthUser): string {
-  return user.role === 'CENTRE' ? '/batches' : '/queue';
+  switch (user.role) {
+    case 'CENTRE':
+      return '/dashboard';
+    case 'STATE':
+      return '/overview';
+    default:
+      return '/queue';
+  }
 }

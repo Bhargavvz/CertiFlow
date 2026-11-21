@@ -1,28 +1,64 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth, homePathFor, useAuth } from './auth';
+import { SkeletonBlock } from './components/Feedback';
 import { AppShell } from './components/shell/AppShell';
-import { BatchDetailPage } from './pages/BatchDetailPage';
-import { BatchListPage } from './pages/BatchListPage';
-import { CertificatesPage } from './pages/CertificatesPage';
-import { LoginPage } from './pages/LoginPage';
-import { PhonePage } from './pages/PhonePage';
-import { QueuePage } from './pages/QueuePage';
-import { StuckPage } from './pages/StuckPage';
-import { VerifyPage } from './pages/VerifyPage';
+import { I18nProvider } from './i18n';
+
+// Each page is its own chunk: the public verify page (opened from WhatsApp on a
+// phone) never downloads the officer screens or the chart library.
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const CentreDashboard = lazy(() => import('./pages/centre/CentreDashboard'));
+const BatchesPage = lazy(() => import('./pages/BatchesPage'));
+const NewBatchPage = lazy(() => import('./pages/centre/NewBatchPage'));
+const PreparePage = lazy(() => import('./pages/centre/PreparePage'));
+const BatchDetailPage = lazy(() => import('./pages/review/BatchDetailPage'));
+const QueuePage = lazy(() => import('./pages/review/QueuePage'));
+const OverviewPage = lazy(() => import('./pages/state/OverviewPage'));
+const StuckPage = lazy(() => import('./pages/state/StuckPage'));
+const CertificatesPage = lazy(() => import('./pages/state/CertificatesPage'));
+const DeliveriesPage = lazy(() => import('./pages/state/DeliveriesPage'));
+const VerifyPage = lazy(() => import('./pages/public/VerifyPage'));
+const CandidatePage = lazy(() => import('./pages/public/CandidatePage'));
+const PhonePage = lazy(() => import('./pages/public/PhonePage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function Home() {
   const { user } = useAuth();
   return <Navigate to={user ? homePathFor(user) : '/login'} replace />;
 }
 
+function Page({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-3xl p-6">
+          <SkeletonBlock lines={4} />
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
+
+function Public({ children }: { children: ReactNode }) {
+  return (
+    <I18nProvider>
+      <Page>{children}</Page>
+    </I18nProvider>
+  );
+}
+
 export function App() {
   return (
     <Routes>
       {/* Public, no login */}
-      <Route path="/verify" element={<VerifyPage />} />
-      <Route path="/verify/:number" element={<VerifyPage />} />
-      <Route path="/phone" element={<PhonePage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/verify" element={<Public><VerifyPage /></Public>} />
+      <Route path="/verify/:number" element={<Public><VerifyPage /></Public>} />
+      <Route path="/c/:token" element={<Public><CandidatePage /></Public>} />
+      <Route path="/phone" element={<Page><PhonePage /></Page>} />
+      <Route path="/login" element={<Page><LoginPage /></Page>} />
 
       {/* Signed in */}
       <Route
@@ -33,13 +69,18 @@ export function App() {
         }
       >
         <Route path="/" element={<Home />} />
-        <Route path="/batches" element={<BatchListPage />} />
-        <Route path="/batches/:id" element={<BatchDetailPage />} />
-        <Route path="/queue" element={<QueuePage />} />
-        <Route path="/stuck" element={<StuckPage />} />
-        <Route path="/certificates" element={<CertificatesPage />} />
+        <Route path="/dashboard" element={<Page><CentreDashboard /></Page>} />
+        <Route path="/batches" element={<Page><BatchesPage /></Page>} />
+        <Route path="/batches/new" element={<Page><NewBatchPage /></Page>} />
+        <Route path="/batches/:id" element={<Page><BatchDetailPage /></Page>} />
+        <Route path="/batches/:id/prepare" element={<Page><PreparePage /></Page>} />
+        <Route path="/queue" element={<Page><QueuePage /></Page>} />
+        <Route path="/overview" element={<Page><OverviewPage /></Page>} />
+        <Route path="/stuck" element={<Page><StuckPage /></Page>} />
+        <Route path="/certificates" element={<Page><CertificatesPage /></Page>} />
+        <Route path="/deliveries" element={<Page><DeliveriesPage /></Page>} />
+        <Route path="*" element={<Page><NotFoundPage /></Page>} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -21,6 +21,8 @@ export interface Column<T> {
   align?: 'left' | 'right' | 'center';
   /** Hide on narrow screens to keep the table readable. */
   hideBelow?: 'sm' | 'md' | 'lg';
+  /** Exported to CSV but not shown (e.g. a value already shown inside another cell). */
+  csvOnly?: boolean;
   className?: string;
 }
 
@@ -107,6 +109,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
   const pages = Math.max(1, Math.ceil(processed.length / size));
   const current = Math.min(page, pages - 1);
   const visible = processed.slice(current * size, current * size + size);
+  const shown = p.columns.filter((c) => !c.csvOnly);
   const hasSearch = p.columns.some((c) => c.searchText);
   const csvCols = p.columns.filter((c) => c.csv);
 
@@ -163,7 +166,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
           <caption className="sr-only">{p.caption}</caption>
           <thead>
             <tr className="border-b border-border bg-surface-2/70">
-              {p.columns.map((c) => {
+              {shown.map((c) => {
                 const active = sort?.id === c.id;
                 const SortIcon = !active ? ArrowUpDown : sort!.dir === 'asc' ? ArrowUp : ArrowDown;
                 return (
@@ -199,7 +202,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
             {p.loading &&
               Array.from({ length: 5 }, (_, i) => (
                 <tr key={i} className="border-b border-border last:border-0">
-                  {p.columns.map((c) => (
+                  {shown.map((c) => (
                     <td key={c.id} className={cn('px-4 py-3', c.hideBelow && hideCls[c.hideBelow])}>
                       <Skeleton className="h-4 w-full max-w-[140px]" />
                     </td>
@@ -227,7 +230,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                       p.rowClassName?.(row),
                     )}
                   >
-                    {p.columns.map((c) => (
+                    {shown.map((c) => (
                       <td
                         key={c.id}
                         className={cn(

@@ -19,8 +19,3 @@ export function notifyError(e: unknown, title?: string) {
     duration: 8000,
   });
 }
-
-/** Kept for pages not yet rebuilt: same call shape as the old toast hook. */
-export function useToast() {
-  return notify;
-}
