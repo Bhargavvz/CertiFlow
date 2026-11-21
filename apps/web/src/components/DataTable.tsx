@@ -161,11 +161,11 @@ export function DataTable<T>(p: DataTableProps<T>) {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
+      <div className="relative overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full border-collapse text-body">
           <caption className="sr-only">{p.caption}</caption>
           <thead>
-            <tr className="border-b border-border bg-surface-2/70">
+            <tr className="border-b border-border-strong/70">
               {shown.map((c) => {
                 const active = sort?.id === c.id;
                 const SortIcon = !active ? ArrowUpDown : sort!.dir === 'asc' ? ArrowUp : ArrowDown;
@@ -175,7 +175,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                     scope="col"
                     aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : c.sortValue ? 'none' : undefined}
                     className={cn(
-                      'whitespace-nowrap px-4 py-2.5 text-caption font-semibold text-muted',
+                      'whitespace-nowrap px-4 pb-2.5 pt-3 text-micro font-semibold text-muted',
                       alignCls[c.align ?? 'left'],
                       c.hideBelow && hideCls[c.hideBelow],
                       c.className,
@@ -226,7 +226,7 @@ export function DataTable<T>(p: DataTableProps<T>) {
                     }
                     className={cn(
                       'border-b border-border transition-colors last:border-0',
-                      href && 'cursor-pointer hover:bg-surface-2/60',
+                      href && 'cursor-pointer hover:bg-primary-soft/40',
                       p.rowClassName?.(row),
                     )}
                   >

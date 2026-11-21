@@ -1,39 +1,48 @@
 /*
- * CertiFlow design tokens. Single source for colour, type, radius and elevation.
- * Components only use the semantic names below (bg, surface, fg, muted, primary,
- * status-*), never raw hex, so light and dark mode stay consistent.
+ * CertiFlow design tokens: "security print".
+ * The identity comes from the thing every user recognises: an official certificate.
+ * Ink indigo (security ink), cool paper, guilloche line-work and an ink seal. Components
+ * use only the semantic names below, never raw hex, so light and dark stay consistent.
  *
- * Contrast (WCAG AA = 4.5:1), measured for both modes:
- *   fg/surface ≥ 14.9 · muted on surface/surface-2/bg ≥ 5.2 · every status fg on its bg ≥ 6.5 ·
- *   primary-fg on primary ≥ 6.7. Re-measure if you change any value here.
+ * Contrast (WCAG AA 4.5:1) is measured, not guessed: re-run the contrast script in the
+ * docs whenever a value changes. Status colours are unchanged from the validated set.
  */
 
 @import 'tailwindcss';
-@import '@fontsource-variable/inter';
+@import '@fontsource-variable/public-sans';
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/noto-sans-devanagari';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Neutrals: a cool, slightly blue-grey ramp reads "official" without being cold. */
-  --bg: #f6f7f9;
+  /* Paper and ink */
+  --bg: #f3f4f7;
   --surface: #ffffff;
-  --surface-2: #f1f3f6; /* table headers, wells, hover */
-  --border: #e2e6ec;
-  --border-strong: #cbd2dc;
-  --fg: #0f1b2d;
-  --muted: #5a6678;
-  --subtle: #8692a3; /* only for icons/decoration, never body text */
+  --surface-2: #eef0f5;
+  --border: #e1e4ec;
+  --border-strong: #c9cedb;
+  --fg: #131a33;
+  --muted: #566079;
+  --subtle: #8a93a8; /* icons and decoration only, never body text */
 
-  /* Primary: deep teal-indigo. Trustworthy, not the default SaaS blue. */
-  --primary: #134e5e;
-  --primary-hover: #0e3c49;
+  /* Security ink: the one brand colour */
+  --primary: #24306e;
+  --primary-hover: #1b255a;
   --primary-fg: #ffffff;
-  --primary-soft: #e3f0f2;
-  --primary-soft-fg: #0f4553;
-  --ring: #2a8a9c;
+  --primary-soft: #e8ebf7;
+  --primary-soft-fg: #1f2a63;
+  --ring: #4a5bc4;
 
-  /* Status system: draft slate · pending amber · sent back orange · success green ·
-     failure red · in-progress blue. Each has a tinted background and a strong text colour. */
+  /* The navigation rail is printed in deep ink in both themes */
+  --ink: #121935;
+  --ink-2: #1c2550;
+  --ink-fg: #eef0fa;
+  --ink-muted: #a6aecb;
+  --ink-border: #263063;
+
+  /* Status: draft slate, pending amber, sent back orange, success green, failure red,
+     in progress blue. Tinted background + strong text; every pair ≥ 6.5:1. */
   --status-slate-bg: #eef1f5;
   --status-slate-fg: #3c4a5d;
   --status-slate-dot: #64748b;
@@ -53,35 +62,41 @@
   --status-blue-fg: #1c4590;
   --status-blue-dot: #3b78e7;
 
-  /* Role colours (avatars only), deliberately different hues from the status system. */
+  /* Role colours: avatars only, hues kept apart from the status system */
   --role-centre: #0e7c86;
-  --role-district: #4a4fc4;
-  --role-quality: #7c3aed;
+  --role-district: #2f67b1;
+  --role-quality: #7a3ad8;
   --role-state: #b4235f;
 
-  --shadow-sm: 0 1px 2px rgb(15 27 45 / 0.06);
-  --shadow-md: 0 1px 3px rgb(15 27 45 / 0.08), 0 4px 12px rgb(15 27 45 / 0.06);
-  --shadow-lg: 0 8px 30px rgb(15 27 45 / 0.14);
+  --shadow-sm: 0 1px 2px rgb(19 26 51 / 0.06);
+  --shadow-md: 0 1px 2px rgb(19 26 51 / 0.05), 0 6px 18px -6px rgb(19 26 51 / 0.12);
+  --shadow-lg: 0 18px 48px -12px rgb(19 26 51 / 0.28);
 
   color-scheme: light;
 }
 
 .dark {
-  --bg: #0a111c;
-  --surface: #101a28;
-  --surface-2: #162233;
-  --border: #223047;
-  --border-strong: #31425c;
-  --fg: #e8edf4;
-  --muted: #9aa8bb;
-  --subtle: #6b7a90;
+  --bg: #0b1022;
+  --surface: #121933;
+  --surface-2: #18213f;
+  --border: #263055;
+  --border-strong: #35416c;
+  --fg: #e8ebf5;
+  --muted: #9ba4c0;
+  --subtle: #6c7695;
 
-  --primary: #4fb3c2;
-  --primary-hover: #6cc4d1;
-  --primary-fg: #06222a;
-  --primary-soft: #11313a;
-  --primary-soft-fg: #9fdbe4;
-  --ring: #6cc4d1;
+  --primary: #a9b5ff;
+  --primary-hover: #c0c9ff;
+  --primary-fg: #0e1435;
+  --primary-soft: #1f2954;
+  --primary-soft-fg: #c8d0ff;
+  --ring: #8c9bff;
+
+  --ink: #070b19;
+  --ink-2: #131a38;
+  --ink-fg: #eef0fa;
+  --ink-muted: #9aa3c2;
+  --ink-border: #1b2349;
 
   --status-slate-bg: #1c2738;
   --status-slate-fg: #c3ccd9;
@@ -103,20 +118,21 @@
   --status-blue-dot: #5b92f0;
 
   --role-centre: #2fa6b0;
-  --role-district: #7a7ff0;
+  --role-district: #5a92da;
   --role-quality: #a37cf5;
   --role-state: #e0558f;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 1px 3px rgb(0 0 0 / 0.45), 0 4px 12px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 8px 30px rgb(0 0 0 / 0.55);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 20px -8px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 20px 50px -12px rgb(0 0 0 / 0.7);
 
   color-scheme: dark;
 }
 
-/* Expose tokens to Tailwind: bg-surface, text-muted, border-border, bg-status-green-bg … */
 @theme inline {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Public Sans Variable', 'Noto Sans Devanagari Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Noto Sans Devanagari Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -132,6 +148,11 @@
   --color-primary-soft: var(--primary-soft);
   --color-primary-soft-fg: var(--primary-soft-fg);
   --color-ring: var(--ring);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-fg: var(--ink-fg);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-border: var(--ink-border);
 
   --color-status-slate-bg: var(--status-slate-bg);
   --color-status-slate-fg: var(--status-slate-fg);
@@ -157,33 +178,40 @@
   --color-role-quality: var(--role-quality);
   --color-role-state: var(--role-state);
 
+  /* Radius follows hierarchy: controls < panels < page-level surfaces. */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-xl: 18px;
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
 
-  /* Type scale: page title · section title · body · caption */
-  --text-title: 1.5rem;
-  --text-title--line-height: 2rem;
-  --text-title--letter-spacing: -0.015em;
+  /* Type scale (1.2 ratio from a 14px body): display · title · section · body · caption */
+  --text-display: 2.25rem;
+  --text-display--line-height: 2.6rem;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 650;
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.15rem;
+  --text-title--letter-spacing: -0.02em;
   --text-title--font-weight: 650;
-  --text-section: 1rem;
+  --text-section: 1.0625rem;
   --text-section--line-height: 1.5rem;
-  --text-section--font-weight: 600;
+  --text-section--letter-spacing: -0.005em;
+  --text-section--font-weight: 620;
   --text-body: 0.875rem;
-  --text-body--line-height: 1.375rem;
-  --text-caption: 0.75rem;
-  --text-caption--line-height: 1rem;
+  --text-body--line-height: 1.4rem;
+  --text-caption: 0.78125rem;
+  --text-caption--line-height: 1.1rem;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
-    font-feature-settings: 'cv11', 'ss01'; /* Inter: straight-sided digits, open 4/6/9 */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -191,9 +219,17 @@
     background: var(--bg);
     color: var(--fg);
     font-size: 0.875rem;
-    line-height: 1.375rem;
+    line-height: 1.4rem;
   }
-  /* One consistent, highly visible focus ring for every interactive element. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
@@ -208,17 +244,29 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
   }
 }
 
-/* Numbers that line up in tables and stat cards. */
+/* Numbers that line up in tables, stats and timers. */
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* Motion: short, ease-out, and disabled entirely under prefers-reduced-motion (see base layer). */
+/* Display face for numbers and titles outside h1-h3. */
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* Faint paper grain on page-level surfaces: two crossing hairline patterns. */
+@utility paper {
+  background-image:
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--fg) 2.2%, transparent) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--fg) 1.6%, transparent) 0 1px, transparent 1px 7px);
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -239,4 +287,13 @@
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-green-dot) 55%, transparent); }
   70% { box-shadow: 0 0 0 6px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
+}
+/* The one orchestrated moment: the seal is pressed onto the verify result. */
+@keyframes seal-press {
+  0% { opacity: 0; transform: scale(1.35) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(0.96) rotate(-7deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-8deg); }
+}
+@keyframes guilloche-turn {
+  to { transform: rotate(360deg); }
 }

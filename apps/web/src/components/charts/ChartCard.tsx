@@ -61,7 +61,7 @@ export function ChartCard({
 /** Minimal table used as every chart's accessible alternative. */
 export function SimpleTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
   return (
-    <div className="max-h-72 overflow-auto rounded-md border border-border">
+    <div className="relative max-h-72 overflow-auto rounded-md border border-border">
       <table className="w-full text-body">
         <caption className="sr-only">{caption}</caption>
         <thead className="sticky top-0 bg-surface-2">

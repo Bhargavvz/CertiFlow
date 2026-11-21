@@ -58,7 +58,7 @@ export function UploadErrors({ errors, totalRows, fileName }: { errors: RowError
         </Button>
       </div>
 
-      <div className="max-h-[28rem] overflow-y-auto">
+      <div className="relative max-h-[28rem] overflow-y-auto">
         <table className="w-full text-body">
           <caption className="sr-only">Problems found in the uploaded spreadsheet, by row</caption>
           <thead className="sticky top-0 z-10 bg-surface-2">

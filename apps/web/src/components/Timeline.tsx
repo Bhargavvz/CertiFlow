@@ -137,7 +137,7 @@ function Actor({ item }: { item: TimelineItem }) {
     <span className="inline-flex items-center gap-1.5">
       {isPerson && item.actorName && <Avatar name={item.actorName} role={item.actorRole as Role} size="sm" />}
       <span className="font-medium text-fg">{label}</span>
-      {isPerson && <span className="text-muted">· {humanise(item.actorRole)}</span>}
+      {isPerson && <span className="text-muted">({humanise(item.actorRole).toLowerCase()})</span>}
     </span>
   );
 }
@@ -184,7 +184,7 @@ function EventRow({ item }: { item: TimelineItem }) {
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption">
         <Actor item={item} />
-        {extra && <span className="text-muted">· {extra}</span>}
+        {extra && <span className="rounded bg-surface-2 px-1.5 py-px text-muted">{extra}</span>}
         <Correlation id={item.correlationId} />
       </div>
       {item.reason && (
@@ -218,7 +218,7 @@ function GroupRow({ action, items }: { action: string; items: TimelineItem[] }) 
         {open ? 'Hide' : 'Show'} each one
       </button>
       {open && (
-        <ul className="mt-2 max-h-64 overflow-y-auto rounded-md border border-border bg-surface-2/40 text-caption">
+        <ul className="relative mt-2 max-h-64 overflow-y-auto rounded-md border border-border bg-surface-2/40 text-caption">
           {items.map((i, idx) => (
             <li key={idx} className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-1.5 last:border-0">
               <span className="font-mono text-fg">{typeof i.metadata?.certificateNumber === 'string' ? i.metadata.certificateNumber : i.entityId.slice(0, 8)}</span>
@@ -262,7 +262,7 @@ function AttemptsRow({ items }: { items: TimelineItem[] }) {
         {open ? 'Hide' : 'Show'} every attempt
       </button>
       {open && (
-        <ul className="mt-2 max-h-72 overflow-y-auto rounded-md border border-border bg-surface-2/40 text-caption">
+        <ul className="relative mt-2 max-h-72 overflow-y-auto rounded-md border border-border bg-surface-2/40 text-caption">
           {items.map((i, idx) => (
             <li key={idx} className="grid grid-cols-[1fr_auto] gap-x-3 border-b border-border px-3 py-1.5 last:border-0 sm:grid-cols-[10rem_1fr_auto]">
               <span className="font-mono text-fg">{String(i.metadata?.certificateNumber ?? '')}</span>

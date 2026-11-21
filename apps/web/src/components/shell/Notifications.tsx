@@ -100,7 +100,7 @@ export function NotificationBell() {
             </button>
           )}
         </div>
-        <div className="max-h-[26rem] overflow-y-auto p-1">
+        <div className="relative max-h-[26rem] overflow-y-auto p-1">
           {notifications.isLoading ? (
             <SkeletonBlock className="p-3" />
           ) : items.length === 0 ? (

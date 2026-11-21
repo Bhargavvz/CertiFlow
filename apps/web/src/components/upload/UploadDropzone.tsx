@@ -63,7 +63,7 @@ export function UploadDropzone({
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-fg">{file.name}</span>
               <span className="block text-caption text-muted">
-                {formatBytes(file.size)} · {busy ? 'Checking every row…' : 'Ready'}
+                {formatBytes(file.size)}, {busy ? 'checking every row…' : 'ready'}
               </span>
             </span>
             {!busy && onClear && (

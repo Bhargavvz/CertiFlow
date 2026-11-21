@@ -1,226 +1,163 @@
-// The signed-in frame: sidebar (full on desktop, icon rail on tablet, drawer on
-// mobile), top bar, and the routed page. Every page renders its own PageHeader.
-import { ROLE_LABELS } from '@certiflow/shared';
-import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, Check, ExternalLink, LogOut, Menu, Monitor, Moon, Search, Smartphone, Sun, Users, Workflow } from 'lucide-react';
+// The signed-in frame. A deep-ink navigation rail (full on desktop, icons on tablet,
+// a drawer on phones) and a light work area whose top bar carries the breadcrumb,
+// search, live status and notifications.
+import { ArrowUpRight, Menu, Search, ShieldCheck, Smartphone, Workflow } from 'lucide-react';
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { api } from '../../api';
-import { homePathFor, useAuth } from '../../auth';
-import { useTheme, type ThemeChoice } from '../../design/theme';
+import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../../auth';
+import { Brand, BrandMark } from '../../design/Brand';
+import { GuillocheBand } from '../../design/Guilloche';
 import { cn } from '../../lib/cn';
 import { useRealtime } from '../../realtime';
-import { notifyError } from '../../toast';
-import type { DemoUser } from '../../types';
-import { Avatar, LiveIndicator } from '../Display';
+import { Breadcrumb, LiveIndicator } from '../Display';
 import { Button } from '../ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Tooltip,
-} from '../ui/overlays';
+import { Dialog, DialogContent, Tooltip } from '../ui/overlays';
+import { AccountMenu } from './AccountMenu';
 import { CommandPalette, SHORTCUT_LABEL } from './CommandPalette';
+import { CrumbsProvider, useCrumbs } from './crumbs';
 import { navFor, type NavItem } from './nav';
 import { NotificationBell } from './Notifications';
 
-function Brand({ compact, tight }: { compact?: boolean; tight?: boolean }) {
+function RailLink({ item, rail, onNavigate }: { item: NavItem; rail: boolean; onNavigate?: () => void }) {
+  const link = (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      onClick={onNavigate}
+      aria-label={item.label}
+      className={({ isActive }) =>
+        cn(
+          'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-body font-medium transition-colors',
+          rail && 'justify-center lg:justify-start',
+          isActive ? 'bg-ink-2 text-ink-fg' : 'text-ink-muted hover:bg-ink-2/60 hover:text-ink-fg',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {/* Active marker: a short ink rule at the left edge. */}
+          <span aria-hidden className={cn('absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-ink-fg transition-opacity', isActive ? 'opacity-100' : 'opacity-0')} />
+          <item.icon className="size-[18px] shrink-0" aria-hidden />
+          <span className={cn(rail && 'sr-only lg:not-sr-only')}>{item.label}</span>
+        </>
+      )}
+    </NavLink>
+  );
+  if (!rail) return link;
   return (
-    <span className="flex items-center gap-2.5">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-fg shadow-sm">
-        <BadgeCheck className="size-[18px]" aria-hidden />
+    <>
+      <span className="lg:hidden">
+        <Tooltip content={item.label} side="right">
+          {link}
+        </Tooltip>
       </span>
-      <span className={cn('leading-tight', compact && 'lg:block hidden')}>
-        <span className="block text-[0.9375rem] font-semibold tracking-tight text-fg">CertiFlow</span>
-        <span className={cn('block whitespace-nowrap text-[0.6875rem] text-muted', tight && 'hidden sm:block')}>Pragati Skills Mission</span>
-      </span>
-    </span>
+      <span className="hidden lg:block">{link}</span>
+    </>
   );
 }
 
-function NavLinks({ items, rail, onNavigate }: { items: NavItem[]; rail?: boolean; onNavigate?: () => void }) {
-  return (
-    <ul className="flex flex-col gap-0.5">
-      {items.map((item) => {
-        const link = (
-          <NavLink
-            to={item.to}
-            end={item.end}
-            onClick={onNavigate}
-            aria-label={item.label}
-            className={({ isActive }) =>
-              cn(
-                'group flex items-center gap-3 rounded-md px-2.5 py-2 text-body font-medium transition-colors',
-                rail && 'justify-center lg:justify-start',
-                isActive ? 'bg-primary-soft text-primary-soft-fg' : 'text-muted hover:bg-surface-2 hover:text-fg',
-              )
-            }
-          >
-            <item.icon className="size-[18px] shrink-0" aria-hidden />
-            <span className={cn(rail && 'sr-only lg:not-sr-only')}>{item.label}</span>
-          </NavLink>
-        );
-        return (
-          <li key={item.to}>
-            {rail ? (
-              <span className="lg:hidden">
-                <Tooltip content={item.label} side="right">
-                  {link}
-                </Tooltip>
-              </span>
-            ) : null}
-            <span className={cn(rail && 'hidden lg:block')}>{link}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function ExternalLinks({ isState, rail }: { isState: boolean; rail?: boolean }) {
-  const links = [
-    { href: '/verify', label: 'Public verify', icon: BadgeCheck },
-    { href: '/phone', label: 'Mock phone', icon: Smartphone },
-    ...(isState ? [{ href: '/admin/queues', label: 'Job queues', icon: Workflow }] : []),
+function Sidebar({ rail, onNavigate }: { rail: boolean; onNavigate?: () => void }) {
+  const { user } = useAuth();
+  if (!user) return null;
+  const tools = [
+    { href: '/verify', label: 'Public verify', icon: ShieldCheck },
+    { href: '/phone', label: 'Candidate phone (demo)', icon: Smartphone },
+    ...(user.role === 'STATE' ? [{ href: '/admin/queues', label: 'Job queues', icon: Workflow }] : []),
   ];
+
   return (
-    <div className="mt-6">
-      <p className={cn('mb-1.5 px-2.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-subtle', rail && 'hidden lg:block')}>
-        Tools
-      </p>
-      <ul className="flex flex-col gap-0.5">
-        {links.map((l) => (
-          <li key={l.href}>
-            <a
-              href={l.href}
-              target="_blank"
-              rel="noreferrer"
-              title={l.label}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-2.5 py-2 text-body text-muted transition-colors hover:bg-surface-2 hover:text-fg',
-                rail && 'justify-center lg:justify-start',
-              )}
-            >
-              <l.icon className="size-[18px] shrink-0" aria-hidden />
-              <span className={cn('flex-1', rail && 'sr-only lg:not-sr-only')}>{l.label}</span>
-              <ExternalLink className={cn('size-3.5 text-subtle', rail && 'hidden lg:block')} aria-hidden />
-              <span className="sr-only">(opens in a new tab)</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+    <div className="flex h-full flex-col bg-ink text-ink-fg">
+      {/* Crest */}
+      <div className="relative overflow-hidden px-3 pb-5 pt-5">
+        <GuillocheBand className="pointer-events-none absolute inset-x-0 bottom-0 h-10 w-full text-ink-fg/[0.08]" />
+        <div className={cn('relative px-1', rail && 'flex justify-center lg:block')}>
+          {rail ? (
+            <>
+              <span className="text-ink-fg lg:hidden">
+                <BrandMark />
+              </span>
+              <Brand tone="ink" className="hidden lg:flex" />
+            </>
+          ) : (
+            <Brand tone="ink" />
+          )}
+        </div>
+      </div>
+
+      <nav aria-label="Main" className="relative flex-1 overflow-y-auto px-3 pt-2">
+        <p className={cn('mb-1.5 px-3 text-micro font-medium text-ink-muted', rail && 'hidden lg:block')}>Workspace</p>
+        <ul className="flex flex-col gap-0.5">
+          {navFor(user.role).map((item) => (
+            <li key={item.to}>
+              <RailLink item={item} rail={rail} onNavigate={onNavigate} />
+            </li>
+          ))}
+        </ul>
+
+        <p className={cn('mb-1.5 mt-7 px-3 text-micro font-medium text-ink-muted', rail && 'hidden lg:block')}>Open in a new tab</p>
+        {rail && <hr className="mx-2 my-4 border-ink-border lg:hidden" />}
+        <ul className="flex flex-col gap-0.5">
+          {tools.map((t) => (
+            <li key={t.href}>
+              <a
+                href={t.href}
+                target="_blank"
+                rel="noreferrer"
+                title={t.label}
+                className={cn(
+                  'group flex items-center gap-3 rounded-lg px-3 py-2 text-body text-ink-muted transition-colors hover:bg-ink-2/60 hover:text-ink-fg',
+                  rail && 'justify-center lg:justify-start',
+                )}
+              >
+                <t.icon className="size-[18px] shrink-0" aria-hidden />
+                <span className={cn('flex-1', rail && 'sr-only lg:not-sr-only')}>{t.label}</span>
+                <ArrowUpRight className={cn('size-3.5 opacity-0 transition-opacity group-hover:opacity-100', rail && 'hidden lg:block')} aria-hidden />
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div className="border-t border-ink-border p-3">
+        <AccountMenu variant="rail" />
+        <p className={cn('mt-2 px-2 text-micro text-ink-muted/80', rail && 'hidden lg:block')}>Demo environment with fictional data</p>
+      </div>
     </div>
   );
 }
 
-const THEMES: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
-];
-
-function ThemeMenu() {
-  const { choice, resolved, setChoice } = useTheme();
-  const Icon = resolved === 'dark' ? Moon : Sun;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Theme: ${choice}`}>
-          <Icon />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[10rem]">
-        <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-        {THEMES.map((t) => (
-          <DropdownMenuItem key={t.value} onSelect={() => setChoice(t.value)}>
-            <t.icon aria-hidden />
-            <span className="flex-1">{t.label}</span>
-            {choice === t.value && <Check className="!text-primary" aria-label="selected" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function UserMenu() {
-  const { user, login, logout } = useAuth();
-  const navigate = useNavigate();
-  // Demo only: the endpoint 404s when DEMO_LOGIN_ENABLED=false, and then the switcher hides.
-  const demo = useQuery({
-    queryKey: ['demo-users'],
-    queryFn: () => api<{ users: DemoUser[] }>('/auth/demo-users'),
-    staleTime: Infinity,
-    retry: false,
-  });
+function TopBar({ connected, onMenu, onSearch }: { connected: boolean; onMenu: () => void; onSearch: () => void }) {
+  const { user } = useAuth();
+  const crumbs = useCrumbs();
   if (!user) return null;
-  const others = (demo.data?.users ?? []).filter((u) => u.name !== user.name);
-
-  const switchTo = async (key: string) => {
-    try {
-      const u = await login(key);
-      navigate(homePathFor(u));
-    } catch (e) {
-      notifyError(e, 'Could not switch user');
-    }
-  };
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <header className="sticky top-0 z-20 border-b border-border bg-bg/85 backdrop-blur-md supports-[backdrop-filter]:bg-bg/70">
+      <div className="mx-auto flex h-14 max-w-[1320px] items-center gap-2 px-3 sm:px-6 lg:px-10">
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenu} aria-label="Open navigation">
+          <Menu />
+        </Button>
+        <Breadcrumb items={crumbs} className="min-w-0 flex-1" />
+        {crumbs.length === 0 && <span className="flex-1" />}
         <button
           type="button"
-          aria-label={`Account menu: ${user.name}, ${ROLE_LABELS[user.role]}`}
-          className="flex items-center gap-2.5 rounded-lg py-1 pl-1 pr-2 transition-colors hover:bg-surface-2"
+          onClick={onSearch}
+          className="hidden h-9 w-64 items-center gap-2 rounded-md border border-border bg-surface px-3 text-body text-subtle transition-colors hover:border-border-strong hover:text-muted lg:flex"
         >
-          <Avatar name={user.name} role={user.role} />
-          <span className="hidden text-left leading-tight sm:block">
-            <span className="block text-body font-medium text-fg">{user.name}</span>
-            <span className="block text-[0.6875rem] text-muted">{ROLE_LABELS[user.role]}</span>
-          </span>
+          <Search className="size-4" aria-hidden />
+          <span className="flex-1 text-left">{user.role === 'STATE' ? 'Batches, certificates…' : 'Search batches…'}</span>
+          <kbd className="rounded border border-border px-1.5 font-sans text-micro text-muted">{SHORTCUT_LABEL}</kbd>
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <Avatar name={user.name} role={user.role} size="lg" />
-          <div className="min-w-0">
-            <p className="truncate font-medium text-fg">{user.name}</p>
-            <p className="text-caption text-muted">{ROLE_LABELS[user.role]}</p>
-          </div>
-        </div>
-        {others.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>
-              <span className="inline-flex items-center gap-1.5">
-                <Users className="size-3.5" aria-hidden /> Switch demo user
-              </span>
-            </DropdownMenuLabel>
-            {others.map((u) => (
-              <DropdownMenuItem key={u.key} onSelect={() => void switchTo(u.key)}>
-                <Avatar name={u.name} role={u.role} size="sm" />
-                <span className="flex-1 truncate">{u.name}</span>
-                <span className="text-[0.6875rem] text-muted">{ROLE_LABELS[u.role]}</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={async () => {
-            await logout();
-            navigate('/login');
-          }}
-        >
-          <LogOut aria-hidden /> Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onSearch} aria-label="Search">
+          <Search />
+        </Button>
+        <LiveIndicator connected={connected} />
+        <NotificationBell />
+        <span className="md:hidden">
+          <AccountMenu variant="bar" />
+        </span>
+      </div>
+    </header>
   );
 }
 
@@ -230,77 +167,32 @@ export function AppShell() {
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
   if (!user) return null;
-  const items = navFor(user.role);
 
   return (
-    <div className="min-h-dvh bg-bg">
-      <a
-        href="#main"
-        className="sr-only z-50 rounded-md bg-primary px-3 py-2 text-primary-fg focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
-      >
-        Skip to content
-      </a>
+    <CrumbsProvider>
+      <div className="min-h-dvh bg-bg">
+        <a href="#main" className="sr-only z-50 rounded-md bg-primary px-3 py-2 text-primary-fg focus:not-sr-only focus:fixed focus:left-3 focus:top-3">
+          Skip to content
+        </a>
 
-      {/* Sidebar: icon rail on tablet (md), full width on desktop (lg), hidden on mobile. */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-16 flex-col border-r border-border bg-surface px-2 py-4 md:flex lg:w-60 lg:px-3">
-        <div className="mb-6 flex justify-center px-1 lg:justify-start lg:px-1.5">
-          <Brand compact />
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] md:block lg:w-[252px]">
+          <Sidebar rail />
+        </aside>
+
+        <Dialog open={drawer} onOpenChange={setDrawer}>
+          <DialogContent title="Navigation" side="left" className="border-ink-border bg-ink">
+            <Sidebar rail={false} onNavigate={() => setDrawer(false)} />
+          </DialogContent>
+        </Dialog>
+
+        <div className="min-w-0 md:pl-[72px] lg:pl-[252px]">
+          <TopBar connected={connected} onMenu={() => setDrawer(true)} onSearch={() => setPalette(true)} />
+          <CommandPalette open={palette} onOpenChange={setPalette} />
+          <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1320px] px-4 pb-16 pt-7 focus:outline-none sm:px-6 lg:px-10 lg:pt-9">
+            <Outlet />
+          </main>
         </div>
-        <nav aria-label="Main" className="flex-1 overflow-y-auto">
-          <NavLinks items={items} rail />
-          <ExternalLinks isState={user.role === 'STATE'} rail />
-        </nav>
-        <p className="hidden px-2.5 text-[0.6875rem] text-subtle lg:block">Demo environment · fictional data</p>
-      </aside>
-
-      {/* Mobile drawer */}
-      <Dialog open={drawer} onOpenChange={setDrawer}>
-        <DialogContent title="Navigation" side="left">
-          <div className="flex h-full flex-col px-3 py-4">
-            <div className="mb-6 px-1.5">
-              <Brand />
-            </div>
-            <nav aria-label="Main" className="flex-1 overflow-y-auto">
-              <NavLinks items={items} onNavigate={() => setDrawer(false)} />
-              <ExternalLinks isState={user.role === 'STATE'} />
-            </nav>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="min-w-0 md:pl-16 lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-surface/75 sm:px-5">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setDrawer(true)} aria-label="Open navigation">
-            <Menu />
-          </Button>
-          <span className="md:hidden">
-            <Brand tight />
-          </span>
-          {/* Global search: opens the command palette, scoped to what this user may see. */}
-          <div className="flex flex-1 justify-end md:justify-start">
-            <button
-              type="button"
-              onClick={() => setPalette(true)}
-              className="hidden h-9 w-full max-w-sm items-center gap-2 rounded-md border border-border bg-surface-2/60 px-3 text-body text-subtle transition-colors hover:border-border-strong hover:text-muted md:flex"
-            >
-              <Search className="size-4" aria-hidden />
-              <span className="flex-1 text-left">{user.role === 'STATE' ? 'Search batches, certificates…' : 'Search batches…'}</span>
-              <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[0.6875rem] text-muted">{SHORTCUT_LABEL}</kbd>
-            </button>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setPalette(true)} aria-label="Search">
-              <Search />
-            </Button>
-          </div>
-          <LiveIndicator connected={connected} />
-          <NotificationBell />
-          <ThemeMenu />
-          <UserMenu />
-        </header>
-        <CommandPalette open={palette} onOpenChange={setPalette} />
-        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl px-4 py-6 focus:outline-none sm:px-6 lg:px-8 lg:py-8">
-          <Outlet />
-        </main>
       </div>
-    </div>
+    </CrumbsProvider>
   );
 }

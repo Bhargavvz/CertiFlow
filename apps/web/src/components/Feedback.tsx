@@ -37,7 +37,7 @@ export function EmptyState({
 }) {
   return (
     <div className={cn('flex flex-col items-center justify-center px-6 py-12 text-center', className)}>
-      <span className="mb-3 grid size-11 place-items-center rounded-full bg-surface-2 text-muted">
+      <span className="mb-3 grid size-11 place-items-center rounded-lg bg-primary-soft text-primary-soft-fg">
         <Icon className="size-5" aria-hidden />
       </span>
       <p className="text-section text-fg">{title}</p>

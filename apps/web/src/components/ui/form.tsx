@@ -9,12 +9,12 @@ import {
 import { cn } from '../../lib/cn';
 
 const field =
-  'w-full rounded-md border border-border-strong bg-surface px-3 text-body text-fg shadow-sm placeholder:text-subtle ' +
-  'transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 ' +
+  'w-full rounded-md border border-border-strong bg-surface px-3 text-body text-fg placeholder:text-subtle ' +
+  'transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20 ' +
   'disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-status-red-dot';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(({ className, ...props }, ref) => (
-  <input ref={ref} className={cn(field, 'h-9', className)} {...props} />
+  <input ref={ref} className={cn(field, 'h-10', className)} {...props} />
 ));
 Input.displayName = 'Input';
 
@@ -29,7 +29,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     ref={ref}
     className={cn(
       field,
-      'h-9 cursor-pointer appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8',
+      'h-10 cursor-pointer appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8',
       "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238692a3' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")]",
       className,
     )}

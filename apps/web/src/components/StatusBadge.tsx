@@ -29,8 +29,9 @@ export function StatusBadge(props: Props & { size?: 'sm' | 'md'; className?: str
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full font-medium whitespace-nowrap',
-        props.size === 'sm' ? 'px-2 py-0.5 text-[0.6875rem] leading-4' : 'px-2.5 py-0.5 text-caption',
+        // A printed tag: small radius and a hairline edge in the same ink, like a rubber stamp.
+        'inline-flex shrink-0 items-center gap-1 rounded-[5px] font-semibold whitespace-nowrap ring-1 ring-inset ring-current/15',
+        props.size === 'sm' ? 'px-1.5 py-px text-micro' : 'px-2 py-0.5 text-caption',
         toneClasses[s.tone].badge,
         props.className,
       )}
@@ -44,7 +45,13 @@ export function StatusBadge(props: Props & { size?: 'sm' | 'md'; className?: str
 /** Plain tone pill for things that are not a status (e.g. "SLA breached", "You approved"). */
 export function Pill({ tone, children, className }: { tone: keyof typeof toneClasses; children: ReactNode; className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-caption font-medium whitespace-nowrap [&_svg]:size-3.5', toneClasses[tone].badge, className)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-[5px] px-2 py-0.5 text-caption font-semibold whitespace-nowrap ring-1 ring-inset ring-current/15 [&_svg]:size-3.5',
+        toneClasses[tone].badge,
+        className,
+      )}
+    >
       {children}
     </span>
   );

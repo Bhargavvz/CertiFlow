@@ -112,7 +112,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         />
         <kbd className="rounded border border-border px-1.5 py-0.5 text-[0.6875rem] text-muted">Esc</kbd>
       </div>
-      <Command.List className="max-h-[60vh] overflow-y-auto p-1">
+      <Command.List className="relative max-h-[60vh] overflow-y-auto p-1">
         <Command.Empty className="px-4 py-8 text-center text-body text-muted">
           {searching && (batches.isFetching || certificates.isFetching) ? 'Searching…' : 'No results.'}
         </Command.Empty>
@@ -148,7 +148,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-mono text-caption">{c.certificateNumber}</span>
                   <span className="block truncate text-caption text-muted">
-                    {c.candidate.fullName} · {c.batch.courseName}
+                    {c.candidate.fullName}, {c.batch.courseName}
                   </span>
                 </span>
                 <StatusBadge kind="certificate" status={c.status} size="sm" />
@@ -200,7 +200,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         )}
       </Command.List>
       <p className="border-t border-border px-4 py-2 text-[0.6875rem] text-subtle">
-        {q.length < 2 ? 'Type 2 or more characters to search batches' : 'Results only include what you’re allowed to see'} · ↑↓ to move · Enter to open
+        {q.length < 2 ? 'Type 2 or more characters to search batches.' : 'Results only include what you’re allowed to see.'} Use ↑ ↓ to move and Enter to open.
       </p>
     </Command.Dialog>
   );
