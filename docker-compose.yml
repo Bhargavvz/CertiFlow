@@ -1,0 +1,149 @@
+# `docker compose up --build` starts everything: migrations + seed run once in the
+# `migrate` service, then api/worker start. Scale with:
+#   docker compose up --build --scale api=2 --scale worker=3
+# Every value has a demo default so no .env file is needed. Override any of them in .env.
+
+x-node-env: &node-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://certiflow:certiflow@postgres:5432/certiflow
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-demo-only-jwt-secret-change-me-0123456789}
+  JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-28800}
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  DEMO_LOGIN_ENABLED: ${DEMO_LOGIN_ENABLED:-true}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:8080}
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-certiflow}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-certiflow-secret}
+  S3_BUCKET: ${S3_BUCKET:-certificates}
+  WHATSAPP_API_URL: http://mock-whatsapp:4000
+  WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN:-demo-provider-token}
+  WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET:-demo-only-webhook-secret-0123456789}
+  WHATSAPP_TIMEOUT_MS: ${WHATSAPP_TIMEOUT_MS:-3000}
+  WHATSAPP_MAX_ATTEMPTS: ${WHATSAPP_MAX_ATTEMPTS:-8}
+  RETRY_BASE_MS: ${RETRY_BASE_MS:-1000}
+  RETRY_MAX_MS: ${RETRY_MAX_MS:-60000}
+  DOWNLOAD_TOKEN_SECRET: ${DOWNLOAD_TOKEN_SECRET:-demo-only-download-secret-0123456789}
+  QUALITY_THRESHOLD: ${QUALITY_THRESHOLD:-50}
+  SLA_HOURS: ${SLA_HOURS:-48}
+  SLA_OVERRIDE_SECONDS: ${SLA_OVERRIDE_SECONDS:-}
+  SLA_SWEEP_EVERY_MS: ${SLA_SWEEP_EVERY_MS:-30000}
+  VERIFY_CACHE_TTL_SECONDS: ${VERIFY_CACHE_TTL_SECONDS:-300}
+  RATE_LIMIT_LOGIN_PER_MIN: ${RATE_LIMIT_LOGIN_PER_MIN:-30}
+  RATE_LIMIT_VERIFY_PER_MIN: ${RATE_LIMIT_VERIFY_PER_MIN:-60}
+  RATE_LIMIT_DOWNLOAD_PER_MIN: ${RATE_LIMIT_DOWNLOAD_PER_MIN:-30}
+  OUTBOX_POLL_MS: ${OUTBOX_POLL_MS:-250}
+
+x-node-image: &node-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: certiflow/node:local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: certiflow
+      POSTGRES_PASSWORD: certiflow
+      POSTGRES_DB: certiflow
+    ports: ['5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U certiflow -d certiflow']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    # AOF persistence so queued jobs survive a Redis restart (the outbox can re-drive anything lost).
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    # MinIO no longer publishes images on Docker Hub/Quay; Bitnami's archived build is
+    # pinned instead (docs/DECISIONS.md D27). It starts the server and console itself.
+    image: bitnamilegacy/minio:2025.7.23
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-certiflow}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-certiflow-secret}
+    ports: ['9000:9000', '9001:9001']
+    volumes: [miniodata:/bitnami/minio/data]
+
+  # One-shot: apply migrations and seed demo data, then exit. api/worker wait for it,
+  # so scaling api to N replicas never races migrations.
+  migrate:
+    <<: *node-image
+    environment: *node-env
+    command: ['sh', '-c', 'npx prisma migrate deploy && npx prisma db seed']
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    <<: *node-image
+    environment:
+      <<: *node-env
+      SERVICE_NAME: api
+      PORT: 3000
+    command: ['npx', 'tsx', 'apps/api/src/index.ts']
+    # A port range so `--scale api=2` does not collide on the host.
+    ports: ['3000-3001:3000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    <<: *node-image
+    environment:
+      <<: *node-env
+      SERVICE_NAME: worker
+    command: ['npx', 'tsx', 'apps/worker/src/index.ts']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio: { condition: service_started }
+
+  mock-whatsapp:
+    <<: *node-image
+    environment:
+      SERVICE_NAME: mock-whatsapp
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MOCK_PORT: 4000
+      MOCK_WEBHOOK_URL: http://api:3000/api/v1/webhooks/whatsapp
+      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET:-demo-only-webhook-secret-0123456789}
+      MOCK_FAIL_500: ${MOCK_FAIL_500:-0.2}
+      MOCK_FAIL_TIMEOUT: ${MOCK_FAIL_TIMEOUT:-0.1}
+      MOCK_FAIL_429: ${MOCK_FAIL_429:-0.05}
+      MOCK_WEBHOOK_FAIL: ${MOCK_WEBHOOK_FAIL:-0.02}
+      MOCK_HANG_MS: ${MOCK_HANG_MS:-10000}
+    command: ['npx', 'tsx', 'apps/mock-whatsapp/src/index.ts']
+    ports: ['4000:4000']
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports: ['8080:80']
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

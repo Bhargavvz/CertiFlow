@@ -1,0 +1,51 @@
+# Runs the whole test suite against real Postgres, Redis and MinIO:
+#   docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
+# For running `npm test` on the host, start only the backing services:
+#   docker compose -f docker-compose.test.yml up -d postgres-test redis-test minio-test
+# (they listen on 5433 / 6380 / 9002, which tests/setup/env.ts uses by default)
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: certiflow
+      POSTGRES_PASSWORD: certiflow
+      POSTGRES_DB: certiflow_test
+    ports: ['5433:5432']
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U certiflow -d certiflow_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis-test:
+    image: redis:7-alpine
+    ports: ['6380:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  minio-test:
+    # MinIO no longer publishes images on Docker Hub/Quay; see docs/DECISIONS.md D27.
+    image: bitnamilegacy/minio:2025.7.23
+    environment:
+      MINIO_ROOT_USER: certiflow
+      MINIO_ROOT_PASSWORD: certiflow-secret
+    ports: ['9002:9000']
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://certiflow:certiflow@postgres-test:5432/certiflow_test
+      REDIS_URL: redis://redis-test:6379/0
+      S3_ENDPOINT: http://minio-test:9000
+    command: ['npx', 'vitest', 'run']
+    depends_on:
+      postgres-test: { condition: service_healthy }
+      redis-test: { condition: service_healthy }
+      minio-test: { condition: service_started }
