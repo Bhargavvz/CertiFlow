@@ -1,0 +1,19 @@
+{
+  "name": "@certiflow/mock-whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A fake WhatsApp Business provider with failure injection, idempotency keys and signed delivery webhooks.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pino": "^9.6.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0"
+  }
+}
