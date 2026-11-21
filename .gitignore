@@ -19,3 +19,6 @@ pgdata/
 playwright-report/
 test-results/
 lighthouse-*.html
+
+# local preview config for the editor
+.claude/launch.json
