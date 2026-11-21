@@ -62,12 +62,12 @@ describe('validateSpreadsheet', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.errors).toEqual([
-        { row: 3, column: 'phone', message: PHONE_MESSAGE },
-        { row: 4, column: 'score', message: SCORE_MESSAGE },
-        { row: 5, column: 'full_name', message: FORMULA_MESSAGE },
-        { row: 6, column: 'enrolment_id', message: FORMULA_MESSAGE },
-        { row: 7, column: 'passed_on', message: 'Passed-on date cannot be in the future' },
-        { row: 8, column: 'enrolment_id', message: 'Duplicate enrolment ID (already used on row 2)' },
+        { row: 3, column: 'phone', value: '12345', message: PHONE_MESSAGE },
+        { row: 4, column: 'score', value: '140', message: SCORE_MESSAGE },
+        { row: 5, column: 'full_name', value: '=CMD()', message: FORMULA_MESSAGE },
+        { row: 6, column: 'enrolment_id', value: '@evil', message: FORMULA_MESSAGE },
+        { row: 7, column: 'passed_on', value: '2099-01-01', message: 'Passed-on date cannot be in the future' },
+        { row: 8, column: 'enrolment_id', value: 'E-2', message: 'Duplicate enrolment ID (already used on row 2)' },
       ]);
     }
   });
@@ -80,6 +80,15 @@ describe('validateSpreadsheet', () => {
         [1, 'aadhaar'],
         [1, 'enrolment_id'],
       ]);
+    }
+  });
+
+  it('trims very long cell values in the error report', () => {
+    const r = validateSpreadsheet({ headers, rows: [row(2, { full_name: '=' + 'X'.repeat(200) })] }, 100);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors[0]!.value).toHaveLength(60);
+      expect(r.errors[0]!.value.endsWith('...')).toBe(true);
     }
   });
 

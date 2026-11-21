@@ -32,9 +32,9 @@ describe('M1: all-or-nothing spreadsheet import', () => {
     expect(res.body.error.code).toBe('INVALID_SPREADSHEET');
     expect(res.body.error.details.totalRows).toBe(20);
     expect(res.body.error.details.errors).toEqual([
-      { row: 5, column: 'phone', message: PHONE_MESSAGE },
-      { row: 9, column: 'score', message: SCORE_MESSAGE },
-      { row: 14, column: 'full_name', message: FORMULA_MESSAGE },
+      { row: 5, column: 'phone', value: '12345', message: PHONE_MESSAGE },
+      { row: 9, column: 'score', value: '140', message: SCORE_MESSAGE },
+      { row: 14, column: 'full_name', value: '=SUM(A1:A2)', message: FORMULA_MESSAGE },
     ]);
     expect(res.body.correlationId).toBeTruthy();
 
@@ -75,8 +75,8 @@ describe('M1: all-or-nothing spreadsheet import', () => {
     const res = await anika.post(`/api/v1/batches/${id}/candidates/import`).attach('file', buffer, 'batch.xlsx');
     expect(res.status).toBe(422);
     expect(res.body.error.details.errors).toEqual([
-      { row: 3, column: 'full_name', message: FORMULA_MESSAGE },
-      { row: 4, column: 'score', message: SCORE_MESSAGE },
+      { row: 3, column: 'full_name', value: '=HYPERLINK("http://evil.example","click")', message: FORMULA_MESSAGE },
+      { row: 4, column: 'score', value: 'abc', message: SCORE_MESSAGE },
     ]);
     expect(await prisma.candidate.count()).toBe(0);
   });

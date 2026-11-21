@@ -11,7 +11,15 @@ export interface RowError {
   /** Spreadsheet row number as the user sees it (header = row 1). */
   row: number;
   column: string;
+  /** What the cell contained (trimmed to 60 chars), so the centre can find it in their sheet. */
+  value: string;
   message: string;
+}
+
+/** Echo back at most 60 characters of the offending cell. */
+export function cellPreview(v: unknown): string {
+  const s = v === undefined || v === null ? '' : String(v).trim();
+  return s.length > 60 ? `${s.slice(0, 57)}...` : s;
 }
 
 export interface CandidateInput {
@@ -172,14 +180,14 @@ export function validateSpreadsheet(sheet: SheetInput, maxRows: number): SheetVa
   const seenHeaders = new Set<string>();
   for (const h of headers) {
     if (!h) continue;
-    if (seenHeaders.has(h)) errors.push({ row: 1, column: h, message: `Column "${h}" appears more than once` });
+    if (seenHeaders.has(h)) errors.push({ row: 1, column: h, value: h, message: `Column "${h}" appears more than once` });
     seenHeaders.add(h);
     if (!(CANDIDATE_COLUMNS as readonly string[]).includes(h)) {
-      errors.push({ row: 1, column: h, message: `Unknown column "${h}". Allowed columns: ${CANDIDATE_COLUMNS.join(', ')}` });
+      errors.push({ row: 1, column: h, value: h, message: `Unknown column "${h}". Allowed columns: ${CANDIDATE_COLUMNS.join(', ')}` });
     }
   }
   for (const col of REQUIRED_COLUMNS) {
-    if (!seenHeaders.has(col)) errors.push({ row: 1, column: col, message: `Missing required column "${col}"` });
+    if (!seenHeaders.has(col)) errors.push({ row: 1, column: col, value: '', message: `Missing required column "${col}"` });
   }
   if (errors.length) return { ok: false, errors, totalRows: sheet.rows.length };
 
@@ -191,9 +199,9 @@ export function validateSpreadsheet(sheet: SheetInput, maxRows: number): SheetVa
     }))
     .filter((r) => Object.values(r.values).some((v) => String(v).trim() !== ''));
 
-  if (rows.length === 0) return { ok: false, errors: [{ row: 2, column: '(file)', message: 'The file has no candidate rows' }], totalRows: 0 };
+  if (rows.length === 0) return { ok: false, errors: [{ row: 2, column: '(file)', value: '', message: 'The file has no candidate rows' }], totalRows: 0 };
   if (rows.length > maxRows) {
-    return { ok: false, errors: [{ row: maxRows + 2, column: '(file)', message: `A batch may have at most ${maxRows} candidates` }], totalRows: rows.length };
+    return { ok: false, errors: [{ row: maxRows + 2, column: '(file)', value: '', message: `A batch may have at most ${maxRows} candidates` }], totalRows: rows.length };
   }
 
   // 2. Validate every row; never stop at the first error.
@@ -207,14 +215,14 @@ export function validateSpreadsheet(sheet: SheetInput, maxRows: number): SheetVa
         const column = String(issue.path[0] ?? '(row)');
         if (reported.has(column)) continue; // one clear message per cell
         reported.add(column);
-        errors.push({ row: r.rowNumber, column, message: issue.message });
+        errors.push({ row: r.rowNumber, column, value: cellPreview(r.values[column]), message: issue.message });
       }
       continue;
     }
     const key = parsed.data.enrolment_id.toUpperCase();
     const firstRow = firstRowForEnrolment.get(key);
     if (firstRow !== undefined) {
-      errors.push({ row: r.rowNumber, column: 'enrolment_id', message: `Duplicate enrolment ID (already used on row ${firstRow})` });
+      errors.push({ row: r.rowNumber, column: 'enrolment_id', value: cellPreview(r.values.enrolment_id), message: `Duplicate enrolment ID (already used on row ${firstRow})` });
       continue;
     }
     firstRowForEnrolment.set(key, r.rowNumber);
