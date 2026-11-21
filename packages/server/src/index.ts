@@ -19,6 +19,7 @@ export * from './services/certificateService';
 export * from './services/issuanceService';
 export * from './services/deliveryService';
 export * from './services/slaService';
+export * from './services/statsService';
 export * from './services/whatsappClient';
 export * from './jobs/backoff';
 export * from './jobs/eventHandlers';

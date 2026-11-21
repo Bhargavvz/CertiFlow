@@ -16,6 +16,11 @@ export function sha256Hex(data: string | Buffer): string {
 
 export const DOWNLOAD_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
+/** The friendly landing page a candidate opens from WhatsApp (it offers the PDF download). */
+export function candidatePageUrl(token: string): string {
+  return `${getConfig().PUBLIC_WEB_URL}/c/${token}`;
+}
+
 export function downloadUrl(token: string): string {
   return `${getConfig().PUBLIC_WEB_URL}/api/v1/public/certificates/download/${token}`;
 }

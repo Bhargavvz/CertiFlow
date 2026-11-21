@@ -1,5 +1,6 @@
 // Public verification, revocation, search and token-based download.
 import type { Readable } from 'node:stream';
+import QRCode from 'qrcode';
 import { can, isValidCertificateNumber, maskName, normaliseCertificateNumber, type AuthUser } from '@certiflow/shared';
 import { PUBLIC_ACTOR, actorOf, writeAudit } from '../audit';
 import { prisma } from '../db';
@@ -7,7 +8,7 @@ import { Errors, assertAllowed } from '../errors';
 import { logger } from '../logger';
 import { addOutboxEvent } from '../outbox';
 import { getPdfStream } from '../storage';
-import { DOWNLOAD_TOKEN_RE, sha256Hex } from '../tokens';
+import { DOWNLOAD_TOKEN_RE, sha256Hex, verifyUrl } from '../tokens';
 import {
   cacheVerificationIfAbsent,
   getCachedVerification,
@@ -163,4 +164,68 @@ export async function checkPdfAgainstCertificate(rawNumber: string, pdf: Buffer)
   const cert = await prisma.certificate.findUnique({ where: { certificateNumber: number }, select: { pdfSha256: true, status: true } });
   if (!cert) return { found: false as const };
   return { found: true as const, matches: sha256Hex(pdf) === cert.pdfSha256, status: cert.status };
+}
+
+/** State office: open any certificate's PDF (audited, unlike the public token route it needs no token). */
+export async function openCertificatePdfForAdmin(user: AuthUser, rawNumber: string): Promise<{ stream: Readable; fileName: string }> {
+  assertAllowed(can(user, 'certificate.search'));
+  const number = normaliseCertificateNumber(rawNumber);
+  const cert = await prisma.certificate.findUnique({ where: { certificateNumber: number } });
+  if (!cert) throw Errors.notFound('Certificate not found');
+  const stream = await getPdfStream(cert.pdfKey);
+  await writeAudit(prisma, {
+    actor: actorOf(user),
+    action: 'CERTIFICATE_DOWNLOADED_ADMIN',
+    entityType: 'CERTIFICATE',
+    entityId: cert.id,
+    batchId: cert.batchId,
+    metadata: { certificateNumber: cert.certificateNumber },
+  });
+  return { stream, fileName: `${cert.certificateNumber}.pdf` };
+}
+
+/**
+ * What the candidate's WhatsApp link page shows. The token is the only key, and the
+ * page deliberately shows only a first name plus course, centre and date.
+ */
+export async function getCandidateView(token: string) {
+  if (!DOWNLOAD_TOKEN_RE.test(token)) throw Errors.notFound('This link is not valid');
+  const cert = await prisma.certificate.findUnique({
+    where: { downloadTokenHash: sha256Hex(token) },
+    select: {
+      certificateNumber: true,
+      status: true,
+      issuedAt: true,
+      revokedAt: true,
+      candidate: { select: { fullName: true } },
+      batch: { select: { courseName: true, centre: { select: { name: true } } } },
+    },
+  });
+  if (!cert) throw Errors.notFound('This link is not valid');
+  const verify = verifyUrl(cert.certificateNumber);
+  const qrSvg = await QRCode.toString(verify, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+  return {
+    firstName: cert.candidate.fullName.trim().split(/\s+/)[0] ?? '',
+    certificateNumber: cert.certificateNumber,
+    status: cert.status === 'REVOKED' ? ('REVOKED' as const) : ('VALID' as const),
+    courseName: cert.batch.courseName,
+    centreName: cert.batch.centre.name,
+    issuedOn: isoDate(cert.issuedAt),
+    revokedOn: cert.revokedAt ? isoDate(cert.revokedAt) : null,
+    verifyUrl: verify,
+    downloadPath: cert.status === 'REVOKED' ? null : `/api/v1/public/certificates/download/${token}`,
+    qrDataUri: `data:image/svg+xml;base64,${Buffer.from(qrSvg).toString('base64')}`,
+  };
+}
+
+/**
+ * "Check a PDF": the browser hashes the file locally and sends only the SHA-256,
+ * so the document itself never leaves the person's device.
+ */
+export async function checkHashAgainstCertificate(rawNumber: string, sha256: string) {
+  const number = normaliseCertificateNumber(rawNumber);
+  if (!isValidCertificateNumber(number)) return { found: false as const };
+  const cert = await prisma.certificate.findUnique({ where: { certificateNumber: number }, select: { pdfSha256: true, status: true } });
+  if (!cert) return { found: false as const };
+  return { found: true as const, matches: sha256.toLowerCase() === cert.pdfSha256, status: cert.status === 'REVOKED' ? 'REVOKED' : 'VALID' };
 }

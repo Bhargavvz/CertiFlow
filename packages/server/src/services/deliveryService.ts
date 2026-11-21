@@ -7,7 +7,7 @@ import { Errors, assertAllowed } from '../errors';
 import { logger } from '../logger';
 import { addOutboxEvent } from '../outbox';
 import { QUEUE, getQueue, jobId } from '../queues';
-import { downloadTokenFor, downloadUrl, verifyUrl } from '../tokens';
+import { candidatePageUrl, downloadTokenFor, verifyUrl } from '../tokens';
 import { ProviderError, sendWhatsapp } from './whatsappClient';
 import { applyTransition } from './transitions';
 
@@ -38,14 +38,15 @@ export async function processWhatsappSend(deliveryId: string, isFinalAttempt: bo
   const attemptNo = delivery.attempts + 1;
   await prisma.delivery.update({ where: { id: deliveryId }, data: { attempts: { increment: 1 } } });
 
-  const link = downloadUrl(downloadTokenFor(certificate.id));
+  // The link opens a small mobile page (course, date, Download, Share), not a raw PDF.
+  const link = candidatePageUrl(downloadTokenFor(certificate.id));
   const firstName = certificate.candidate.fullName.split(/\s+/)[0];
   const message = {
     to: certificate.candidate.phone,
     link,
     text:
       `Congratulations ${firstName}! Your Pragati Skills Mission certificate ${certificate.certificateNumber} ` +
-      `for "${certificate.batch.courseName}" is ready. Download: ${link} . Anyone can verify it at ${verifyUrl(certificate.certificateNumber)}`,
+      `for "${certificate.batch.courseName}" is ready. Open: ${link} . Anyone can verify it at ${verifyUrl(certificate.certificateNumber)}`,
   };
 
   try {
@@ -238,5 +239,120 @@ export async function retryDeadDeliveries(user: AuthUser, batchId: string): Prom
       eventExtra: { retried: dead.length },
     });
     return { retried: dead.length };
+  });
+}
+
+/** Phone shown to the State office as +91 98•••••123: enough to tell people apart. */
+function maskPhone(phone: string): string {
+  return phone.length > 7 ? `${phone.slice(0, 5)}${'•'.repeat(phone.length - 8)}${phone.slice(-3)}` : '•••';
+}
+
+/**
+ * State deliveries view: per-batch progress for batches being (or recently) issued,
+ * and every dead-lettered delivery with the reason it failed.
+ */
+export async function getDeliveriesOverview(user: AuthUser) {
+  assertAllowed(can(user, 'delivery.retry'));
+  const batches = await prisma.batch.findMany({
+    where: { status: { in: ['APPROVED', 'ISSUING', 'PARTIALLY_ISSUED', 'ISSUED'] } },
+    orderBy: { updatedAt: 'desc' },
+    take: 25,
+    select: { id: true, courseName: true, status: true, candidateCount: true, updatedAt: true, centre: { select: { name: true } } },
+  });
+  const perBatch = await Promise.all(
+    batches.map(async (b) => {
+      const rows = await prisma.delivery.groupBy({ by: ['status'], where: { certificate: { batchId: b.id } }, _count: { _all: true } });
+      const counts = { PENDING: 0, SENT: 0, DELIVERED: 0, FAILED: 0, DEAD: 0 };
+      for (const r of rows) counts[r.status] = r._count._all;
+      const certificates = await prisma.certificate.count({ where: { batchId: b.id } });
+      return { ...b, certificates, counts };
+    }),
+  );
+
+  const dead = await prisma.delivery.findMany({
+    where: { status: 'DEAD' },
+    orderBy: { updatedAt: 'desc' },
+    take: 100,
+    select: {
+      id: true,
+      attempts: true,
+      generation: true,
+      lastError: true,
+      updatedAt: true,
+      certificate: {
+        select: {
+          certificateNumber: true,
+          batchId: true,
+          candidate: { select: { fullName: true, phone: true } },
+          batch: { select: { courseName: true, status: true, centre: { select: { name: true } } } },
+        },
+      },
+    },
+  });
+
+  return {
+    batches: perBatch,
+    dead: dead.map((d) => ({
+      id: d.id,
+      attempts: d.attempts,
+      generation: d.generation,
+      lastError: d.lastError,
+      updatedAt: d.updatedAt,
+      certificateNumber: d.certificate.certificateNumber,
+      batchId: d.certificate.batchId,
+      courseName: d.certificate.batch.courseName,
+      batchStatus: d.certificate.batch.status,
+      centreName: d.certificate.batch.centre.name,
+      candidateName: d.certificate.candidate.fullName,
+      phone: maskPhone(d.certificate.candidate.phone),
+    })),
+  };
+}
+
+/** State office: retry ONE dead delivery with a fresh idempotency key (audited). */
+export async function retryDelivery(user: AuthUser, deliveryId: string): Promise<{ generation: number }> {
+  assertAllowed(can(user, 'delivery.retry'));
+  return prisma.$transaction(async (tx) => {
+    const d = await tx.delivery.findUnique({ where: { id: deliveryId }, include: { certificate: { include: { batch: true } } } });
+    if (!d) throw Errors.notFound('Delivery not found');
+    if (d.status !== 'DEAD') throw Errors.conflict('INVALID_STATE', 'Only a failed (dead-lettered) delivery can be retried');
+    const generation = d.generation + 1;
+    const updated = await tx.delivery.updateMany({
+      where: { id: d.id, status: 'DEAD', generation: d.generation },
+      data: { status: 'FAILED', generation, idempotencyKey: idempotencyKeyFor(d.id, generation), attempts: 0 },
+    });
+    if (updated.count !== 1) throw Errors.conflict('VERSION_CONFLICT', 'This delivery was changed a moment ago. Refresh and try again.');
+    const batch = d.certificate.batch;
+    await writeAudit(tx, {
+      actor: actorOf(user),
+      action: 'DELIVERY_RETRIED',
+      entityType: 'DELIVERY',
+      entityId: d.id,
+      batchId: batch.id,
+      fromState: 'DEAD',
+      toState: 'FAILED',
+      metadata: { generation, certificateNumber: d.certificate.certificateNumber },
+    });
+    await addOutboxEvent(tx, 'DeliveryFailed', {
+      batchId: batch.id,
+      centreId: batch.centreId,
+      districtId: batch.districtId,
+      deliveryId: d.id,
+      retry: true,
+      manual: true,
+      generation,
+    });
+    // A partially issued batch goes back to "issuing" while the retry runs.
+    if (batch.status === 'PARTIALLY_ISSUED') {
+      await applyTransition(tx, batch, {
+        to: transition(batch.status, 'retry_deliveries'),
+        actor: actorOf(user),
+        auditAction: 'DELIVERIES_RETRIED',
+        event: 'BatchDeliveriesRetried',
+        auditMetadata: { retried: 1, deliveryId: d.id },
+        eventExtra: { retried: 1 },
+      });
+    }
+    return { generation };
   });
 }

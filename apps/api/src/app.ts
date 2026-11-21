@@ -12,7 +12,7 @@ import { batchesRouter } from './routes/batches';
 import { healthRouter } from './routes/health';
 import { publicRouter } from './routes/public';
 import { webhooksRouter } from './routes/webhooks';
-import { certificatesRouter, queueRouter, stateRouter } from './routes/workflow';
+import { certificatesRouter, dashboardRouter, queueRouter, stateRouter } from './routes/workflow';
 
 /** Builds the Express app without listening, so tests can drive it with Supertest. */
 export function createApp(): Express {
@@ -52,6 +52,7 @@ export function createApp(): Express {
   v1.use('/queue', authenticate, queueRouter());
   v1.use('/state', authenticate, stateRouter());
   v1.use('/certificates', authenticate, certificatesRouter());
+  v1.use('/', authenticate, dashboardRouter());
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);

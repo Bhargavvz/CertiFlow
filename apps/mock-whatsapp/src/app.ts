@@ -266,7 +266,7 @@ async function show(){
   const el=document.getElementById('chat');el.innerHTML='<h3>'+current+'</h3>';
   for(const m of messages){const d=document.createElement('div');d.className='msg';
     const t=document.createElement('div');t.textContent=m.text;d.appendChild(t);
-    const a=document.createElement('a');a.href=m.link;a.textContent='Download certificate';d.appendChild(a);
+    const a=document.createElement('a');a.href=m.link;a.textContent='Open certificate';d.appendChild(a);
     const s=document.createElement('small');s.textContent=' · '+m.status+' · '+new Date(m.createdAt).toLocaleString();d.appendChild(s);
     el.appendChild(d)}
 }

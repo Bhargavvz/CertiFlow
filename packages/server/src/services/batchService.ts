@@ -8,6 +8,7 @@ import {
   stepForStatus,
   transition,
   type AuthUser,
+  type BatchStatus,
   type CandidateInput,
   type DecisionAction,
   type PolicyAction,
@@ -286,7 +287,8 @@ const summarySelect = {
   district: { select: { id: true, name: true } },
 } satisfies Prisma.BatchSelect;
 
-function scopeFilter(user: AuthUser): Prisma.BatchWhereInput {
+/** Which batches this user may see at all. Shared by lists, queues and stats. */
+export function scopeFilter(user: AuthUser): Prisma.BatchWhereInput {
   switch (user.role) {
     case 'CENTRE':
       return { centreId: user.centreId ?? '00000000-0000-0000-0000-000000000000' };
@@ -298,8 +300,75 @@ function scopeFilter(user: AuthUser): Prisma.BatchWhereInput {
   }
 }
 
-export async function listBatches(user: AuthUser) {
-  return prisma.batch.findMany({ where: scopeFilter(user), select: summarySelect, orderBy: { updatedAt: 'desc' }, take: 200 });
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The batches this user may see. `q` searches course, centre and exact batch id
+ * (used by the command palette); `status` narrows to one status. Scope always applies.
+ */
+export async function listBatches(user: AuthUser, opts: { q?: string; status?: BatchStatus } = {}) {
+  const and: Prisma.BatchWhereInput[] = [scopeFilter(user)];
+  if (opts.status) and.push({ status: opts.status });
+  const q = opts.q?.trim();
+  if (q) {
+    and.push({
+      OR: [
+        { courseName: { contains: q, mode: 'insensitive' } },
+        { centre: { name: { contains: q, mode: 'insensitive' } } },
+        ...(UUID_RE.test(q) ? [{ id: q }] : []),
+      ],
+    });
+  }
+  return prisma.batch.findMany({ where: { AND: and }, select: summarySelect, orderBy: { updatedAt: 'desc' }, take: q ? 20 : 200 });
+}
+
+const NOTIFY_ACTIONS = [
+  'BATCH_SUBMITTED',
+  'BATCH_RESUBMITTED',
+  'BATCH_APPROVED',
+  'BATCH_FINAL_APPROVED',
+  'BATCH_SENT_BACK',
+  'BATCH_REJECTED',
+  'APPROVAL_WITHDRAWN',
+  'SLA_BREACHED',
+  'ISSUANCE_COMPLETED',
+  'DELIVERIES_RETRIED',
+  'CERTIFICATE_REVOKED',
+];
+
+/**
+ * Recent events on batches this user can see, excluding the user's own actions.
+ * Read/unread is kept in the browser (docs/DECISIONS.md), so this is a plain feed.
+ */
+export async function getNotifications(user: AuthUser, limit = 30) {
+  const visible = await prisma.batch.findMany({ where: scopeFilter(user), select: { id: true, courseName: true }, orderBy: { updatedAt: 'desc' }, take: 500 });
+  if (visible.length === 0) return [];
+  const course = new Map(visible.map((b) => [b.id, b.courseName]));
+  const rows = await prisma.auditLog.findMany({
+    where: {
+      batchId: { in: [...course.keys()] },
+      action: { in: NOTIFY_ACTIONS },
+      // System events have no actor; NOT(actorId = me) alone would drop them (NULL semantics).
+      OR: [{ actorId: null }, { actorId: { not: user.id } }],
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  const actorIds = [...new Set(rows.map((r) => r.actorId).filter((x): x is string => !!x))];
+  const actors = new Map((await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } })).map((u) => [u.id, u.name]));
+  return rows.map((r) => ({
+    id: r.id,
+    at: r.createdAt,
+    action: r.action,
+    batchId: r.batchId!,
+    courseName: course.get(r.batchId!) ?? 'A batch',
+    actorName: r.actorId ? (actors.get(r.actorId) ?? null) : null,
+    actorRole: r.actorRole,
+    fromState: r.fromState,
+    toState: r.toState,
+    reason: r.reason,
+    certificateNumber: typeof (r.metadata as Record<string, unknown>)?.certificateNumber === 'string' ? ((r.metadata as Record<string, unknown>).certificateNumber as string) : null,
+  }));
 }
 
 export async function getBatchDetail(user: AuthUser, batchId: string) {
@@ -405,7 +474,10 @@ export async function getWorkQueue(user: AuthUser) {
     where,
     select: {
       ...summarySelect,
-      approvals: { where: { step: 'DISTRICT', decision: 'APPROVE', superseded: false, withdrawnAt: null }, select: { officerId: true, revision: true } },
+      approvals: {
+        where: { step: 'DISTRICT', decision: 'APPROVE', superseded: false, withdrawnAt: null },
+        select: { officerId: true, revision: true, officer: { select: { name: true } } },
+      },
     },
     orderBy: [{ currentStepEnteredAt: 'asc' }, { createdAt: 'asc' }],
     take: 200,
@@ -421,6 +493,7 @@ export async function getWorkQueue(user: AuthUser) {
       ageSeconds: Math.round((now - since.getTime()) / 1000),
       slaDueAt: b.currentStepEnteredAt ? new Date(b.currentStepEnteredAt.getTime() + sla) : null,
       districtApprovals: current.length,
+      approverNames: current.map((a) => a.officer.name),
       iApproved: current.some((a) => a.officerId === user.id),
     };
   });

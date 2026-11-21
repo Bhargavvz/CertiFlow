@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { createBatchSchema, decisionSchema, submitSchema, updateBatchSchema, validateSpreadsheet } from '@certiflow/shared';
+import { BATCH_STATUSES, createBatchSchema, decisionSchema, submitSchema, updateBatchSchema, validateSpreadsheet } from '@certiflow/shared';
 import {
   Errors,
   assertCanEdit,
@@ -48,8 +48,10 @@ export function batchesRouter(): Router {
     fileFilter: (_req, file, cb) => cb(null, /\.(csv|xlsx)$/i.test(file.originalname)),
   });
 
+  const listQuery = z.object({ q: z.string().trim().max(100).optional(), status: z.enum(BATCH_STATUSES).optional() }).strict();
   r.get('/', async (req, res) => {
-    res.json({ batches: await listBatches(currentUser(req)) });
+    const { q, status } = listQuery.parse(req.query);
+    res.json({ batches: await listBatches(currentUser(req), { q, status }) });
   });
 
   r.post('/', async (req, res) => {
