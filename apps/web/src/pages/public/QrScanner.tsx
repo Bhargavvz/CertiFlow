@@ -48,7 +48,7 @@ export function QrScanner({ onResult, onClose }: { onResult: (certificateNumber:
       stop?.();
     };
     // Start once per mount; onResult/t identity changes must not restart the camera.
-  }, []); // eslint-disable-line
+  }, []);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">

@@ -21,8 +21,12 @@ interface Message {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`/mock-whatsapp${path}`);
-  if (!res.ok) throw new Error('The mock WhatsApp service is not reachable.');
+  const res = await fetch(`/mock-whatsapp${path}`).catch(() => null);
+  if (!res || !res.ok) {
+    const direct = await fetch(`http://localhost:4000${path}`).catch(() => null);
+    if (direct && direct.ok) return (await direct.json()) as T;
+    throw new Error('The mock WhatsApp service is not reachable.');
+  }
   return (await res.json()) as T;
 }
 

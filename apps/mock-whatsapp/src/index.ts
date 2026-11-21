@@ -7,10 +7,9 @@ const num = (name: string, fallback: number) => {
   return Number.isFinite(v) && process.env[name] !== '' && process.env[name] !== undefined ? v : fallback;
 };
 
-const secret = process.env.WHATSAPP_WEBHOOK_SECRET;
-if (!secret) {
-  log.fatal('WHATSAPP_WEBHOOK_SECRET is required');
-  process.exit(1);
+const secret = process.env.WHATSAPP_WEBHOOK_SECRET || 'demo-only-webhook-secret-0123456789';
+if (!process.env.WHATSAPP_WEBHOOK_SECRET) {
+  log.info('WHATSAPP_WEBHOOK_SECRET not provided, using demo secret');
 }
 
 const mock = createMockWhatsapp({

@@ -26,22 +26,27 @@ export function reviewActions(detail: BatchDetail, user: AuthUser): ReviewAction
   const { batch: b, allowed, districtApprovals } = detail;
   const inReview = isReviewState(b.status);
   const reviewer = user.role !== 'CENTRE';
+  const isState = user.role === 'STATE';
   const final = b.status === 'PENDING_STATE';
   const label = final ? 'Give final approval' : 'Approve';
   const withHolder = whoHasIt(b.status, b.district.name);
 
   // Visible only to reviewers while the batch is in review, and only if they can do
-  // something here or have already done their part (so they see why not).
-  const canDecide = allowed.approve || allowed.sendBack || allowed.reject || detail.myActiveApproval;
-  const visible = reviewer && inReview && canDecide;
+  // something here or can still withdraw their district approval. Once the batch has
+  // moved on, a past approver just sees their approval in the approvals panel.
+  const canDecide = allowed.approve || allowed.sendBack || allowed.reject;
+  const canWithdraw = detail.myActiveApproval && b.status === 'PENDING_DISTRICT';
+  const visible = reviewer && inReview && (canDecide || canWithdraw);
 
   let approveReason: string | undefined;
   if (!allowed.approve) {
-    approveReason = detail.myActiveApproval
-      ? 'You already approved this revision. A second, different officer must approve.'
-      : user.role === 'STATE' && b.status !== 'PENDING_STATE'
-        ? `The State office approves last. This batch is with the ${withHolder.toLowerCase()} now.`
-        : `This batch is waiting for ${withHolder.toLowerCase()}.`;
+    approveReason = final && !isState
+      ? 'The State office gives final approval. Your district approval is already recorded.'
+      : detail.myActiveApproval && b.status === 'PENDING_DISTRICT'
+        ? 'You already approved this revision. A second, different officer must approve.'
+        : isState && !final
+          ? `The State office approves last. This batch is with the ${withHolder.toLowerCase()} now.`
+          : `This batch is waiting for ${withHolder.toLowerCase()}.`;
   }
 
   const decideReason = (ok: boolean) =>
@@ -58,7 +63,9 @@ export function reviewActions(detail: BatchDetail, user: AuthUser): ReviewAction
   } else if (b.status === 'PENDING_QUALITY') {
     note = `Large batch (${detail.qualityThreshold}+ candidates): quality check before final approval.`;
   } else if (final) {
-    note = `Final approval issues ${b.candidateCount} certificates and sends them on WhatsApp.`;
+    note = isState
+      ? `Final approval issues ${b.candidateCount} certificates and sends them on WhatsApp.`
+      : 'With the State office for final approval.';
   }
 
   return {

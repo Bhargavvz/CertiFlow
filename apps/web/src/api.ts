@@ -37,7 +37,9 @@ export async function api<T>(path: string, { json, headers, ...init }: RequestOp
 
   let res: Response;
   try {
-    res = await fetch(`/api/v1${path}`, { ...init, headers: h, body, credentials: 'include' });
+    // Never let the browser answer from its HTTP cache: these responses are scoped
+    // to the signed-in user, and demo accounts switch inside the same tab.
+    res = await fetch(`/api/v1${path}`, { cache: 'no-store', ...init, headers: h, body, credentials: 'include' });
   } catch {
     throw new ApiError(0, 'NETWORK', "Can't reach CertiFlow. Check your connection and try again.");
   }

@@ -4,7 +4,9 @@ import { plural } from '../../format';
 import { cn } from '../../lib/cn';
 import type { DeliveryStatusCode } from '../../types';
 
-const SEGMENTS: { key: DeliveryStatusCode | 'RETRYING'; label: string; tone: keyof typeof toneClasses }[] = [
+type ProgressKey = 'DELIVERED' | 'SENT' | 'RETRYING' | 'PENDING' | 'DEAD';
+
+const SEGMENTS: { key: ProgressKey; label: string; tone: keyof typeof toneClasses }[] = [
   { key: 'DELIVERED', label: 'delivered', tone: 'green' },
   { key: 'SENT', label: 'sent', tone: 'blue' },
   { key: 'RETRYING', label: 'retrying', tone: 'amber' },
@@ -19,7 +21,7 @@ export function DeliveryProgress({
 }: {
   /** Candidates in the batch (certificates still being generated count as not started). */
   total: number;
-  counts: { DELIVERED: number; SENT: number; RETRYING: number; PENDING: number; DEAD: number };
+  counts: Record<ProgressKey, number>;
   compact?: boolean;
 }) {
   const parts = SEGMENTS.map((s) => ({ ...s, n: counts[s.key] })).filter((s) => s.n > 0);

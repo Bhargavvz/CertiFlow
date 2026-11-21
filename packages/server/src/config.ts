@@ -16,7 +16,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6379/0'),
 
-  JWT_SECRET: z.string().min(32, 'must be at least 32 characters'),
+  JWT_SECRET: z.string().min(32, 'must be at least 32 characters').default('demo-only-jwt-secret-change-me-0123456789'),
   JWT_TTL_SECONDS: z.coerce.number().int().positive().default(8 * 3600),
   COOKIE_SECURE: bool.default('false'),
   DEMO_LOGIN_ENABLED: bool.default('true'),
@@ -34,13 +34,13 @@ const schema = z.object({
 
   WHATSAPP_API_URL: z.string().url().default('http://localhost:4000'),
   WHATSAPP_API_TOKEN: z.string().default('demo-provider-token'),
-  WHATSAPP_WEBHOOK_SECRET: z.string().min(16),
+  WHATSAPP_WEBHOOK_SECRET: z.string().min(16).default('demo-only-webhook-secret-0123456789'),
   WHATSAPP_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
   WHATSAPP_MAX_ATTEMPTS: z.coerce.number().int().min(1).default(8),
   RETRY_BASE_MS: z.coerce.number().int().positive().default(1000),
   RETRY_MAX_MS: z.coerce.number().int().positive().default(60_000),
 
-  DOWNLOAD_TOKEN_SECRET: z.string().min(16),
+  DOWNLOAD_TOKEN_SECRET: z.string().min(16).default('demo-only-download-secret-0123456789'),
 
   QUALITY_THRESHOLD: z.coerce.number().int().positive().default(50),
   SLA_HOURS: z.coerce.number().positive().default(48),

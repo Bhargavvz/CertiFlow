@@ -130,6 +130,13 @@ export function createMockWhatsapp(initial: MockOptions) {
   }
 
   const app: Express = express();
+  app.use((_req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Idempotency-Key, Authorization, X-Signature');
+    if (_req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
   app.use(express.json({ limit: '32kb' }));
 
   app.get('/healthz', (_req, res) => {
@@ -196,7 +203,9 @@ export function createMockWhatsapp(initial: MockOptions) {
   });
 
   app.get('/phones/:phone/messages', (req, res) => {
-    const messages = [...byKey.values()].filter((m) => m.to === req.params.phone).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const raw = req.params.phone;
+    const matchesPhone = (to: string) => to === raw || to.replace(/^\+/, '') === raw.replace(/^\+/, '');
+    const messages = [...byKey.values()].filter((m) => matchesPhone(m.to)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     res.json({ messages });
   });
 

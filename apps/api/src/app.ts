@@ -46,6 +46,14 @@ export function createApp(): Express {
   app.use(rebindCorrelation);
 
   const v1 = express.Router();
+  // Responses depend on the signed-in user (permissions, masked phone numbers), so
+  // the browser must never reuse one across accounts. Without this, the ETag on
+  // GET /batches/:id turns into a 304 and the next user sees the previous user's
+  // "allowed" flags.
+  v1.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   v1.use('/auth', authRouter());
   v1.use('/public', publicRouter());
   v1.use('/batches', authenticate, batchesRouter());

@@ -11,9 +11,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev:api": "tsx watch apps/api/src/index.ts",
-    "dev:worker": "tsx watch apps/worker/src/index.ts",
-    "dev:mock": "tsx watch apps/mock-whatsapp/src/index.ts",
+    "dev:api": "tsx watch --env-file=.env apps/api/src/index.ts",
+    "dev:worker": "tsx watch --env-file=.env apps/worker/src/index.ts",
+    "dev:mock": "tsx watch --env-file=.env apps/mock-whatsapp/src/index.ts",
     "dev:web": "npm run dev -w @certiflow/web",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
